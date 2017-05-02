@@ -1,0 +1,52 @@
+{{extend 'layout.html'}}
+
+<h2>Annotations</h2>
+
+{{if annots:}}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Image</th>
+            <th>Label</th>
+            <th>Annotator</th>
+        </tr>
+    </thead>
+    <tbody>
+    {{for im_id in output_table:}}
+        {{image = output_table[im_id]}}
+        <tr>
+            <td>{{=image['img_id']}}</td>
+            <td><img height=100px src="{{=URL('static', image['img_path'], args=image['img_name'])}}"/></td>
+            <td>
+                {{labs = [lab for lab in image['label']]}}
+                {{for lab in labs:}}
+                    {{=lab}}<br/><br/>
+                {{pass}}
+            </td>
+            <td>
+                {{ids = [id for id in image['annotator']]}}
+                {{for id in ids:}}
+                    {{name = db(db.auth_user.id==id).select(db.auth_user.first_name, db.auth_user.last_name)[0]}}
+                    {{=name['first_name']+' '+name['last_name']}}<br/><br/>
+                {{pass}}
+            </td>
+        </tr>
+    {{pass}}
+    </tbody>
+</table>
+
+<div style="text-align:center">
+    {{if page>1:}}
+    <a href="{{=URL(vars={'page':page-1})}}" class="btn btn-default"><< Prev</a>
+    {{pass}}
+    {{if len(annots)==10:}}
+    <a href="{{=URL(vars={'page':page+1})}}" class="btn btn-default">Next >></a>
+    {{pass}}
+</div>
+
+
+{{else:}}
+<br/><br/>
+<h4 style="text-align:right">There are no annotations in the database currently.</h4>
+{{pass}}

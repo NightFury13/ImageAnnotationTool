@@ -1,0 +1,25 @@
+{{left_sidebar_enabled,right_sidebar_enabled=False,('message' in globals())}}
+{{extend 'layout.html'}}
+
+{{block header}}
+    <header class="container-fluid background">
+      <div class="jumbotron text-center">
+        {{if response.title:}}
+        <h1>Data Tagger</h1>
+        <h3 style="color:light-gray">CVIT's in-house annotation tool</h3>
+        {{pass}}
+      </div>
+    </header>
+{{end}}
+
+<div style="padding-top:10%">
+    <span style="padding-left:35%; float:left; text-align:center">
+        <a href="{{=URL('default', 'view_annot')}}" class="btn btn-default">View Annotations</a>
+    </span>
+    <span style="padding-right:5%; float:right; text-align:center">
+        <a href="{{=URL('default', 'annot_image')}}" class="btn btn-default">Annotate Images</a>
+    </span>
+</div>
+
+{{block right_sidebar}}
+{{end}}

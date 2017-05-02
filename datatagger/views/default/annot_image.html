@@ -1,0 +1,36 @@
+{{extend 'layout.html'}}
+
+<h2>Annotate Images</h2>
+<br/>
+{{if img_id==-1:}}
+<h4 style="text-align:right">Annotation of all images complete.</h4>
+{{else:}}
+    <table class="table table-striped">
+    <thead>
+        <tr>
+            <th style="width:20%">Name</th>
+            <th style="width:50%">Image</th>
+            <th style="width:30%">Annotation</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+                {{img = db(db.Images.id==img_id).select()[0]}}
+                {{=img['img_name']}}
+            </td>
+            <td>
+                <img height=200px src="{{=URL('static', img['img_path'], args=img['img_name'])}}"/> 
+            </td>
+            <td>
+                <form action="#" enctype="multipart/form-data" method="post">
+                    <input name="label" type="text" /><br/><br/>
+                    <input type="submit" />
+                    <input type="hidden" name="_formname" value="annotate" />
+                    <input type="hidden" name="img_id" value="{{=img_id}}" />
+                </form>
+            </td>
+        </tr>
+    </tbody>
+    </table>
+{{pass}}
