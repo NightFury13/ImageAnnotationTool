@@ -8,3 +8,30 @@
 
 <br/><br/>
 
+{{if metasets:}}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Size</th>
+            <th>Location</th>
+            <th>Datasets</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{for metaset in metasets:}}
+        <tr>
+            <td>{{=metaset['id']}}</td>
+            <td>{{=metaset['set_name']}}</td>
+            <td>{{=metaset['set_size']}}</td>
+            <td>{{=metaset['set_path']}}</td>
+            <td>{{=metaset['datasets']}}</td>
+        </tr>
+        {{pass}}
+    </tbody>
+</table>
+{{else:}}
+    <span style="padding-left:5%"><h4>No metasets currently added.</h4></span>
+{{pass}}
+

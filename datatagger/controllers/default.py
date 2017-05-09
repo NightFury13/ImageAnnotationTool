@@ -110,6 +110,7 @@ def add_metaset():
         langdata_path = os.path.join(form.vars.set_path, 'cropped')
         langdata_folders = os.listdir(langdata_path)
         
+        meta_size = 0
         msg = 'MetaSet Creation : Success : '
         for langdata_folder in langdata_folders:
             if not os.listdir(os.path.join(langdata_path, langdata_folder)):
@@ -124,9 +125,16 @@ def add_metaset():
             db.commit()
 
             refresh_data(data_id)
+            meta_size += 1
+        
+        db(db.MetaSets.id==setid).update(set_size=meta_size)
         response.flash = msg 
     elif form.errors:
         response.flash = 'MetaSet creation : Failed : Check form for errors'
+
+    metasets = db(db.MetaSets.id>0).select()
+    for metaset in metasets:
+        metaset['datasets'] = ' || '.join([i['data_name'] for i in db(db.Datasets.data_set==metaset['id']).select()])
            
     return locals() 
         

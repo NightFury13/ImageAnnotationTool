@@ -140,7 +140,7 @@ db.define_table('Datasets',
     Field('data_path', 'string'),
     Field('data_size', 'integer', default=0, readable=False, writable=False),
     Field('data_script', db.Scripts, requires=IS_IN_DB(db, 'Scripts.id', 'Scripts.script_name')),
-    Field('data_set', db.MetaSets, requires=IS_IN_DB(db, 'MetaSets.id', 'MetaSets.set_name'))
+    Field('data_set', db.MetaSets, requires=IS_IN_DB(db, 'MetaSets.id', 'MetaSets.set_name'), required=False)
 )
 
 db.define_table('Images',
