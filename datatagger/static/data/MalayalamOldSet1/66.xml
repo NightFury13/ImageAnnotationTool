@@ -1,0 +1,26 @@
+<annotation>
+  <folder>malayalam</folder>
+  <filename>66</filename>
+  <path>/home/minesh/RealSceneImages/self/malayalam/66.jpg</path>
+  <source>
+    <database>Unknown</database>
+  </source>
+  <size>
+    <width>3456</width>
+    <height>2304</height>
+    <depth>3</depth>
+  </size>
+  <segmented>0</segmented>
+  <object>
+    <name>കേരളകൗമുദി</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>126</xmin>
+      <ymin>1028</ymin>
+      <xmax>3372</xmax>
+      <ymax>1567</ymax>
+    </bndbox>
+  </object>
+</annotation>

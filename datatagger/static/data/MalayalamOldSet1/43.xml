@@ -1,0 +1,26 @@
+<annotation>
+  <folder>malayalam</folder>
+  <filename>43</filename>
+  <path>/home/minesh/RealSceneImages/self/malayalam/43.jpg</path>
+  <source>
+    <database>Unknown</database>
+  </source>
+  <size>
+    <width>3456</width>
+    <height>2304</height>
+    <depth>3</depth>
+  </size>
+  <segmented>0</segmented>
+  <object>
+    <name>ചെറുമൂഴിക്കൽ</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>791</xmin>
+      <ymin>982</ymin>
+      <xmax>3283</xmax>
+      <ymax>1501</ymax>
+    </bndbox>
+  </object>
+</annotation>

@@ -125,9 +125,28 @@ auth.settings.reset_password_requires_verification = True
 # >>> rows = db(db.mytable.myfield == 'value').select(db.mytable.ALL)
 # >>> for row in rows: print row.id, row.myfield
 # -------------------------------------------------------------------------
+db.define_table('Scripts',
+    Field('script_name', 'string')
+)
+
+db.define_table('MetaSets',
+    Field('set_name', 'string'),
+    Field('set_path', 'string'),
+    Field('set_size', 'integer', default=0, readable=False, writable=False)
+)
+
+db.define_table('Datasets',
+    Field('data_name', 'string'),
+    Field('data_path', 'string'),
+    Field('data_size', 'integer', default=0, readable=False, writable=False),
+    Field('data_script', db.Scripts, requires=IS_IN_DB(db, 'Scripts.id', 'Scripts.script_name')),
+    Field('data_set', db.MetaSets, requires=IS_IN_DB(db, 'MetaSets.id', 'MetaSets.set_name'))
+)
+
 db.define_table('Images',
     Field('img_name','string'),
-    Field('img_path','string')
+    Field('img_path','string'),
+    Field('data_id', db.Datasets, requires=IS_IN_DB(db, 'Datasets.id', 'Datasets.data_name'))
 )
 
 db.define_table('Labels',

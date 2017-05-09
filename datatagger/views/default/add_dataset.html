@@ -1,0 +1,54 @@
+{{extend 'layout.html'}}
+
+<h3>Update Datasets</h3>
+<div name="form-holder" style="margin:auto; width:60%; border:2px solid">
+    <h4 style="text-align:center">Add New?</h4>
+    {{=form}}
+</div>
+
+<br/><br/>
+
+{{if datasets:}}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th style="width:5%">#</th>
+            <th style="width:10%">Name</th>
+            <th style="width:5%">#Images</th>
+            <th style="width:50%">Location</th>
+            <th style="width:10%">MetaSet</th>
+            <th style="width:10%">Script</th>
+            <th style="width:10%">Update?</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{for dataset in datasets:}}
+        <tr>
+            <td>{{=dataset['id']}}</td>
+            <td>{{=dataset['data_name']}}</td>
+            <td>{{=dataset['data_size']}}</td>
+            <td>{{=dataset['data_path']}}</td>
+            <td>{{try:}}
+                    {{=db(db.MetaSets.id==dataset['data_set']).select()[0]['set_name']}}
+                {{except:}}
+                    --
+                {{pass}}
+            </td>
+            <td>{{try:}}
+                    {{=db(db.Scripts.id==dataset['data_script']).select()[0]['script_name']}}
+                {{except:}}
+                    --
+                {{pass}}
+            </td>
+            <td>
+                <a href="{{=URL('default','update_db', vars={'data_id':dataset['id']})}}" class="btn btn-info">
+                    <span class="glyphicon glyphicon-refresh"></span> Refresh
+                </a>
+            </td>
+        </tr>
+        {{pass}}
+    </tbody>
+</table>
+{{else:}}
+    <span style="padding-left:5%"><h4>No datasets currently added.</h4></span>
+{{pass}}

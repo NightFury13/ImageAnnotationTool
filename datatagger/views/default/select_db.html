@@ -1,0 +1,39 @@
+{{extend 'layout.html'}}
+
+<h3>Select Dataset</h3>
+
+{{if datasets:}}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>#Images</th>
+            <th>Location</th>
+            <th>Select?</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{for dataset in datasets:}}
+        <tr>
+            <td>{{=dataset['id']}}</td>
+            <td>{{=dataset['data_name']}}</td>
+            <td>{{=dataset['data_size']}}</td>
+            <td>{{=dataset['data_path']}}</td>
+            <td>
+                {{if redirect_fl==1:}}
+                    {{url = URL('default','view_annot', vars={'data_id':dataset['id']})}}
+                {{elif redirect_fl==2:}}
+                    {{url = URL('default','annot_image', vars={'data_id':dataset['id']})}}
+                {{pass}}
+                <a href="{{=url}}" class="btn btn-info">
+                    <span class="glyphicon glyphicon-check"></span> Select
+                </a>
+            </td>
+        </tr>
+        {{pass}}
+    </tbody>
+</table>
+{{else:}}
+    <span style="padding-left:5%"><h4>No datasets currently added.</h4></span>
+{{pass}}

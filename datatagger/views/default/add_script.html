@@ -1,0 +1,30 @@
+{{extend 'layout.html'}}
+
+<h3>Update Supported Scripts</h3>
+<div name="form-holder" style="margin:auto; width:60%; border:2px solid">
+    <h4 style="text-align:center">Add New?</h4>
+    {{=form}}
+</div>
+
+<br/><br/>
+
+{{if scripts:}}
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Name</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{for script in scripts:}}
+        <tr>
+            <td>{{=script['id']}}</td>
+            <td>{{=script['script_name']}}</td>
+        </tr>
+        {{pass}}
+    </tbody>
+</table>
+{{else:}}
+    <span style="padding-left:5%"><h4>No scripts currently supported.</h4></span>
+{{pass}}

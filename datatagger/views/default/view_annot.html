@@ -6,18 +6,19 @@
 <table class="table table-striped">
     <thead>
         <tr>
-            <th>#</th>
-            <th>Image</th>
-            <th>Label</th>
-            <th>Annotator</th>
+            <th style="width:5%">#</th>
+            <th style="width:50%">Image</th>
+            <th style="width:20%">Label</th>
+            <th style="width:15%">Annotator</th>
+            <th style="width:10%">Agreement?</th>
         </tr>
     </thead>
     <tbody>
-    {{for im_id in output_table:}}
+    {{for im_id in sorted(output_table.keys()):}}
         {{image = output_table[im_id]}}
         <tr>
             <td>{{=image['img_id']}}</td>
-            <td><img height=100px src="{{=URL('static', image['img_path'], args=image['img_name'])}}"/></td>
+            <td><img height=100px style="max-width:100%" src="{{=URL('static', image['img_path'], args=image['img_name'])}}"/></td>
             <td>
                 {{labs = [lab for lab in image['label']]}}
                 {{for lab in labs:}}
@@ -31,6 +32,12 @@
                     {{=name['first_name']+' '+name['last_name']}}<br/><br/>
                 {{pass}}
             </td>
+            <td>
+                {{if labs[1:]==labs[:-1]:}}
+                    <span class="glyphicon glyphicon-ok"></span>
+                {{else:}}
+                    <span class="glyphicon glyphicon-remove"></span>
+                {{pass}}
         </tr>
     {{pass}}
     </tbody>
@@ -38,11 +45,20 @@
 
 <div style="text-align:center">
     {{if page>1:}}
-    <a href="{{=URL(vars={'page':page-1})}}" class="btn btn-default"><< Prev</a>
+    <a href="{{=URL(vars={'page':page-1, 'data_id':data_id})}}" class="btn btn-default"><< Prev</a>
     {{pass}}
+    <span style="padding-left:2%; padding-right:2%">Page {{=page}}</span>
     {{if len(annots)==10:}}
-    <a href="{{=URL(vars={'page':page+1})}}" class="btn btn-default">Next >></a>
+    <a href="{{=URL(vars={'page':page+1, 'data_id':data_id})}}" class="btn btn-default">Next >></a>
     {{pass}}
+    <br/><br/>
+    <form enctype="multipart/form-data" action="{{=URL('default', 'view_annot')}}" method="post">
+        <input name="page" id="page" type="text" size=5 value="{{=page}}" />
+        <input name="data_id" id="data_id" type="hidden" value="{{=data_id}}" />
+        <input type="submit" value="Jump To" />
+    </form>
+    <br/>
+
 </div>
 
 

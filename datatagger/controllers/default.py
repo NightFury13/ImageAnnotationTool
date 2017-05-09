@@ -34,7 +34,12 @@ def view_annot():
     start = (page-1)*10
     end = page*10
 
-    annots = db((db.Images.id==db.Labels.img_id)).select(db.Images.ALL, db.Labels.ALL, orderby=db.Images.id, limitby=(start, end))
+    try:
+        data_id = int(request.vars.data_id)
+    except:
+        redirect(URL('default','index', vars={'msg':'Something went wrong : Please select a Dataset before proceeding'}))
+
+    annots = db((db.Images.id>0)&(db.Images.id==db.Labels.img_id)&(db.Images.data_id==data_id)).select(db.Images.ALL, db.Labels.ALL, orderby=db.Images.id, limitby=(start, end))
     output_table = {}
     for row in annots:
         if row['Images']['id'] not in output_table:
@@ -46,42 +51,154 @@ def view_annot():
     return locals()
 
 @auth.requires_login()
-def annot_image():
-    form = SQLFORM(db.Labels)
-    if form.process(session=None, formname='annotate').accepted:
-        session.flash = 'Image Annotation : Success'
-        redirect(URL('default', 'annot_image'))
-    elif form.errors:
-        session.flash = 'Image Annotation : Failed : Check for errors'
+def select_db():
+    redirect_fl = 0
+    if not request.vars.redirect:
+        redirect(URL('default','index', vars={'msg':'Something went wrong, please try again'}))
 
-    if request.vars.img_id:
-        img_id = int(request.vars.img_id)
+    datasets = db(db.Datasets.id>0).select()
+    redirect_fl = int(request.vars.redirect)
+   
+    return locals() 
+
+@auth.requires_login()
+def annot_image():
+    if not request.vars.page:
+        page = 1
     else:
-        img_id = -1
-        all_imgs = [i['id'] for i in db(db.Images.id>0).select(db.Images.id)]
-        user_imgs = [i['img_id'] for i in db(db.Labels.entry_by==auth.user_id).select(db.Labels.img_id)]
-        for im_id in all_imgs:
-            if im_id not in user_imgs:
-                img_id = im_id
-                break
+        page = int(request.vars.page)
+    start = (page-1)*10
+    end = page*10
+
+    try:
+        data_id = int(request.vars.data_id)
+    except:
+        redirect(URL('default','index', vars={'msg':'Something went wrong : Please select a Dataset before proceeding'}))
+
+    img_ids = [i['id'] for i in db((db.Images.id>0)&(db.Images.data_id==data_id)).select(db.Images.id, orderby=db.Images.id, limitby=(start, end))]
 
     return locals()
 
 @auth.requires_login()
-def refresh_data():
+def label_to_db():
+    img_id = request.vars.current_id
+    all_ids = request.vars.img_id
+    idx = 0
+    for im_id in all_ids:
+        if im_id==img_id:
+            break
+        idx+=1
+    label = request.vars.label[idx]
+    img_id = int(img_id)
+    try:
+        if not db((db.Labels.img_id==img_id)&(db.Labels.entry_by==auth.user_id)).select():
+            db.Labels.insert(label=label, img_id=img_id)
+            return DIV('Image Annotation : Success : Label Added', _class="alert alert-success")
+        else:
+            db((db.Labels.img_id==img_id)&(db.Labels.entry_by==auth.user_id)).update(label=label)
+            return DIV('Image Annotation : Success : Label Updated', _class="alert alert-success")
+    except:
+        return DIV('Image Annotation : Failed : Check for errors', _class="alert alert-danger")
+
+@auth.requires_login()
+def add_metaset():
+    form = SQLFORM(db.MetaSets)
+    if form.process().accepted:
+        import os
+        setid = int(form.vars.id)
+        setname = form.vars.set_name
+        langdata_path = os.path.join(form.vars.set_path, 'cropped')
+        langdata_folders = os.listdir(langdata_path)
+        
+        msg = 'MetaSet Creation : Success : '
+        for langdata_folder in langdata_folders:
+            if not os.listdir(os.path.join(langdata_path, langdata_folder)):
+                continue
+            try:
+                script = db(db.Scripts.script_name==langdata_folder).select()[0]['id']
+            except:
+                session.flash = 'Invalid MetaSet directory structure : Non-supported script : '+langdata_folder
+                continue
+            msg += langdata_folder+' : '
+            data_id = db.Datasets.insert(data_name=setname+'~'+langdata_folder, data_path=os.path.join(langdata_path, langdata_folder), data_script=script, data_set=setid)
+            db.commit()
+
+            refresh_data(data_id)
+        response.flash = msg 
+    elif form.errors:
+        response.flash = 'MetaSet creation : Failed : Check form for errors'
+           
+    return locals() 
+        
+@auth.requires_login()
+def add_dataset():
+    form = SQLFORM(db.Datasets)
+    if form.process().accepted:
+        data_id = form.vars.id
+        name = form.vars.data_name
+        path = form.vars.data_path
+        refresh_data(data_id, name, path)
+    elif form.errors:
+        session.flash = 'New dataset addition : Failed : Check form for errors'
+
+    datasets = db(db.Datasets.id>0).select()
+    
+    return locals()
+        
+@auth.requires_login()
+def update_db():
+    if not request.vars.data_id:
+        redirect(URL('default','index', vars={'msg':'Dataset updation : Failed : Invalid Dataset-ID'}))
+    data_id = int(request.vars.data_id)
+
+    refresh_data(data_id)
+    
+    redirect(URL('default', 'add_dataset'))
+
+@auth.requires_login()
+def refresh_data(data_id, data_name=None, data_path=None):
     import os
-    image_path = '/home/mohit/research/web2py/applications/datatagger/static/data/arabic'
-    images = [im for im in os.listdir(image_path) if im.endswith('.jpg')]
+
+    try:
+        dataset = db(db.Datasets.id==data_id).select()[0]
+        data_name = dataset['data_name']
+        data_path = dataset['data_path']
+    except:
+        if not data_name or not data_path:
+            redirect(URL('default','index', vars={'msg':'Dataset updation : Failed : Check form for errors'}))
+        
+    image_path = data_path
+    images = []
+    try:
+        images = [im for im in os.listdir(image_path) if im.endswith('.jpg') or im.endswith('.png')]
+    except:
+        db(db.Datasets.id==data_id).delete()
+        db.commit()
+        redirect(URL('default','index', vars={'msg':'Dataset updation : Failed : No such path %s' % data_path}))
     
     ctr = 0
-    db_images = [i['img_name'] for i in db(db.Images.id>0).select()]
+    db_images = [i['img_name'] for i in db((db.Images.id>0)&(db.Images.data_id==data_id)).select()]
     for img in images:
         if img not in db_images:
-            db.Images.insert(img_name=img, img_path=image_path.split('static')[-1])
+            db.Images.insert(img_name=img, img_path=image_path.split('static')[-1], data_id=data_id)
             ctr += 1
 
+    prev_size = db(db.Datasets.id==data_id).select()[0]['data_size']
+    db(db.Datasets.id==data_id).update(data_size=prev_size+ctr)
     db.commit()
-    redirect(URL('default','index', vars={'msg':'database updated : %s new images' % str(ctr)}))
+    session.flash = 'Dataset updation : Success : %s : %s new images' % (data_name, str(ctr))
+
+@auth.requires_login()
+def add_script():
+    form = SQLFORM(db.Scripts)
+    if form.process().accepted:
+        response.flash = 'Script Addition : Success'
+    elif form.errors:
+        response.flash = 'Script Addition : Failed : Check form for errors'
+
+    scripts = db(db.Scripts.id>0).select()
+    return locals()
+
 
 def user():
     """

@@ -1,0 +1,26 @@
+<annotation>
+  <folder>malayalam</folder>
+  <filename>102</filename>
+  <path>/home/minesh/RealSceneImages/self/malayalam/102.jpg</path>
+  <source>
+    <database>Unknown</database>
+  </source>
+  <size>
+    <width>3456</width>
+    <height>2304</height>
+    <depth>3</depth>
+  </size>
+  <segmented>0</segmented>
+  <object>
+    <name>കൂടാരം</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>314</xmin>
+      <ymin>767</ymin>
+      <xmax>3214</xmax>
+      <ymax>1628</ymax>
+    </bndbox>
+  </object>
+</annotation>

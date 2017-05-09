@@ -1,0 +1,26 @@
+<annotation>
+  <folder>malayalam</folder>
+  <filename>11</filename>
+  <path>/home/minesh/RealSceneImages/self/malayalam/11.jpg</path>
+  <source>
+    <database>Unknown</database>
+  </source>
+  <size>
+    <width>3456</width>
+    <height>2304</height>
+    <depth>3</depth>
+  </size>
+  <segmented>0</segmented>
+  <object>
+    <name>ദ്വാരക(പേരൂർവാര്യം)</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>272</xmin>
+      <ymin>997</ymin>
+      <xmax>2499</xmax>
+      <ymax>1332</ymax>
+    </bndbox>
+  </object>
+</annotation>

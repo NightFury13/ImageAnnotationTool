@@ -22,9 +22,26 @@ sS'type'
 p10
 S'string'
 p11
-ssS'id'
+ssS'data_id'
 p12
 (dp13
+g4
+I512
+sg5
+I00
+sg6
+I4
+sg7
+S'INTEGER REFERENCES Datasets (id) ON DELETE CASCADE  '
+p14
+sg9
+I00
+sg10
+S'reference Datasets'
+p15
+ssS'id'
+p16
+(dp17
 g4
 I512
 sg5
@@ -33,14 +50,15 @@ sg6
 I1
 sg7
 S'INTEGER PRIMARY KEY AUTOINCREMENT'
-p14
+p18
 sg9
 I00
 sg10
-g12
+S'id'
+p19
 ssS'img_path'
-p15
-(dp16
+p20
+(dp21
 g4
 I512
 sg5
@@ -49,7 +67,7 @@ sg6
 I3
 sg7
 S'CHAR(512)'
-p17
+p22
 sg9
 I00
 sg10

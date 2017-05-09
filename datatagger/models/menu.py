@@ -30,7 +30,9 @@ response.google_analytics_id = None
 
 response.menu = [
     (T('Home'), False, URL('default', 'index'), []),
-    (T('Refresh Database'), False, URL('default', 'refresh_data'), []),
+    (T('Add/Update Meta-Set'), False, URL('default', 'add_metaset'), []),
+    (T('Add/Update Dataset'), False, URL('default', 'add_dataset'), []),
+    (T('Add Script'), False, URL('default', 'add_script'), []),
 ]
 
 DEVELOPMENT_MENU = False
