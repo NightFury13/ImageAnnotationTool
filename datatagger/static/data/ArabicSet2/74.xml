@@ -1,0 +1,38 @@
+<annotation>
+  <folder>dec2016_2</folder>
+  <filename>74</filename>
+  <path>74.jpg</path>
+  <source>
+    <database>Unknown</database>
+  </source>
+  <size>
+    <width>550</width>
+    <height>393</height>
+    <depth>3</depth>
+  </size>
+  <segmented>0</segmented>
+  <object>
+    <name>دباخ كنتاكي</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>322</xmin>
+      <ymin>5</ymin>
+      <xmax>513</xmax>
+      <ymax>87</ymax>
+    </bndbox>
+  </object>
+  <object>
+    <name>KFC</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>45</xmin>
+      <ymin>13</ymin>
+      <xmax>203</xmax>
+      <ymax>84</ymax>
+    </bndbox>
+  </object>
+</annotation>

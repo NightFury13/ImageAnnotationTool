@@ -1,0 +1,38 @@
+<annotation>
+  <folder>feb2017</folder>
+  <filename>43</filename>
+  <path>43.jpg</path>
+  <source>
+    <database>Unknown</database>
+  </source>
+  <size>
+    <width>3504</width>
+    <height>1672</height>
+    <depth>3</depth>
+  </size>
+  <segmented>0</segmented>
+  <object>
+    <name>مياعة الإضرانالساكين</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>21</xmin>
+      <ymin>1</ymin>
+      <xmax>3357</xmax>
+      <ymax>1004</ymax>
+    </bndbox>
+  </object>
+  <object>
+    <name>خوان</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>783</xmin>
+      <ymin>1354</ymin>
+      <xmax>974</xmax>
+      <ymax>1487</ymax>
+    </bndbox>
+  </object>
+</annotation>

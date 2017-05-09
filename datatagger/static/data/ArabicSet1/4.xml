@@ -1,0 +1,38 @@
+<annotation>
+  <folder>dec2016_1</folder>
+  <filename>4</filename>
+  <path>4.jpg</path>
+  <source>
+    <database>Unknown</database>
+  </source>
+  <size>
+    <width>852</width>
+    <height>480</height>
+    <depth>3</depth>
+  </size>
+  <segmented>0</segmented>
+  <object>
+    <name>ص ن ع اء</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>309</xmin>
+      <ymin>187</ymin>
+      <xmax>533</xmax>
+      <ymax>267</ymax>
+    </bndbox>
+  </object>
+  <object>
+    <name>Sana'a</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <difficult>0</difficult>
+    <bndbox>
+      <xmin>337</xmin>
+      <ymin>250</ymin>
+      <xmax>510</xmax>
+      <ymax>307</ymax>
+    </bndbox>
+  </object>
+</annotation>

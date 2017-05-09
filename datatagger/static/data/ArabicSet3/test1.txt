@@ -1,0 +1,7 @@
+<annotation>
+  <folder>fullimages4Jan2017</folder>
+  <filename>1</filename>
+  <path>Downloads/fullimages4Jan2017/1.jpg</path>
+  <source>
+    <database>Unknown</database>
+  </source>

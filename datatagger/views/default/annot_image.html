@@ -10,8 +10,9 @@
         <tr>
             <th style="width:5%">#</th>
             <th style="width:50%">Image</th>
-            <th style="width:15%">Your Annotation</th>
-            <th style="width:30%">Update?</th>
+            <th style="width:15%">Other Annotations</th>
+            <th style="width:10%">Your Annotation</th>
+            <th style="width:20%">Update?</th>
         </tr>
     </thead>
     <tbody>
@@ -19,16 +20,22 @@
         <tr>
             {{img = db(db.Images.id==img_id).select()[0]}}
             {{try:}}
-                {{lab = db((db.Labels.img_id==img_id)&(db.Labels.entry_by==auth.user_id)).select(db.Labels.label)[0]['label']}}
+                {{user_lab = db((db.Labels.img_id==img_id)&(db.Labels.entry_by==auth.user_id)).select(db.Labels.label)[0]['label']}}
             {{except:}}
-                {{lab = '--'}}
+                {{user_lab = '--'}}
             {{pass}}
 
             <td>{{=img_id}}</td>
             <td>
                 <img height=200px style="max-width:100%" src="{{=URL('static', img['img_path'], args=img['img_name'])}}"/> 
             </td>
-            <td>{{=lab}}</td>
+            <td>
+            {{labs = db((db.Labels.img_id==img_id)&(db.auth_user.id==db.Labels.entry_by)).select(db.Labels.label, db.auth_user.first_name)}}
+            {{for lab in labs:}}
+                {{=lab['Labels']['label']}} ({{=lab['auth_user']['first_name']}})<br/>
+            {{pass}}
+            </td>
+            <td>{{=user_lab}}</td>
             <td>
                 <form id="annotate-{{=img_id}}">
                     <input name="label" id="label" type="text" size=15/>

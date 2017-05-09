@@ -191,6 +191,16 @@ def refresh_data(data_id, data_name=None, data_path=None):
             db.Images.insert(img_name=img, img_path=image_path.split('static')[-1], data_id=data_id)
             ctr += 1
 
+    try:
+        labfile = os.path.join(image_path, [labf for labf in os.listdir(image_path) if labf.endswith('.txt')][0])
+        with open(labfile, 'r') as f:
+            labels = [i.strip().split() for i in f.readlines()]
+            for label in labels:
+                imgid = db(db.Images.img_name==label[0]).select()[0]['id']
+                db.Labels.insert(img_id=imgid, label=label[1])
+    except:
+        pass
+
     prev_size = db(db.Datasets.id==data_id).select()[0]['data_size']
     db(db.Datasets.id==data_id).update(data_size=prev_size+ctr)
     db.commit()
