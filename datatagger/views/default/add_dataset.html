@@ -9,16 +9,18 @@
 <br/><br/>
 
 {{if datasets:}}
-<table class="table table-striped table-hover" width="100%">
+<div style="width:100%">
+<table class="table table-striped table-hover" style="width:100%">
     <thead>
         <tr>
             <th style="width:5%">#</th>
             <th style="width:10%">Name</th>
             <th style="width:5%">#Images</th>
-            <th style="width:50%">Location</th>
+            <th style="width:50%; max-width:50px">Location</th>
             <th style="width:10%">MetaSet</th>
             <th style="width:10%">Script</th>
             <th style="width:10%">Update?</th>
+            <th style="color:red">Delete?</th>
         </tr>
     </thead>
     <tbody>
@@ -45,10 +47,15 @@
                     <span class="glyphicon glyphicon-refresh"></span> Refresh
                 </a>
             </td>
+            <td><a href="{{=URL('default','del_dataset', vars={'d_id':dataset['id']})}}" class="btn btn-danger">
+                    <span class="glyphicon glyphicon-floppy-remove"></span> Delete
+                </a>
+            </td>
         </tr>
         {{pass}}
     </tbody>
 </table>
+</div>
 {{else:}}
     <span style="padding-left:5%"><h4>No datasets currently added.</h4></span>
 {{pass}}

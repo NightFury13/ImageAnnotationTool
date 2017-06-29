@@ -19,7 +19,7 @@
     <tbody>
         {{for script in scripts:}}
         <tr>
-            <td>{{=script['id']}}</td>
+            <td><a href="{{=URL('default', 'update_script', vars={'s_id':script['id']})}}">{{=script['id']}}</a></td>
             <td>{{=script['script_name']}}</td>
         </tr>
         {{pass}}

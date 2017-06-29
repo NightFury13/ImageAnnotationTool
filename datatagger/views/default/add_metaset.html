@@ -9,7 +9,8 @@
 <br/><br/>
 
 {{if metasets:}}
-<table class="table table-striped">
+<div style="width:100%">
+<table class="table table-striped" style="width:100%">
     <thead>
         <tr>
             <th>#</th>
@@ -17,6 +18,7 @@
             <th>Size</th>
             <th>Location</th>
             <th>Datasets</th>
+            <th style="color:red">Delete?</th>
         </tr>
     </thead>
     <tbody>
@@ -27,10 +29,15 @@
             <td>{{=metaset['set_size']}}</td>
             <td>{{=metaset['set_path']}}</td>
             <td>{{=metaset['datasets']}}</td>
+            <td><a href="{{=URL('default','del_metaset', vars={'m_id':metaset['id']})}}" class="btn btn-danger">
+                    <span class="glyphicon glyphicon-floppy-remove"></span> Delete
+                </a>
+            </td>
         </tr>
         {{pass}}
     </tbody>
 </table>
+</div>
 {{else:}}
     <span style="padding-left:5%"><h4>No metasets currently added.</h4></span>
 {{pass}}

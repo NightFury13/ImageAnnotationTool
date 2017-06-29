@@ -3,14 +3,26 @@
 <h2>Annotations</h2>
 
 {{if annots:}}
+
+<div style="text-align:right">
+    <a href="{{=URL('default','settle_conflict', vars={'dataset_id':data_id})}}" class="btn btn-warning">
+        <span class="glyphicon glyphicon-wrench"></span> Resolve Conflicts?
+    </a>
+    <a href="{{=URL('default','prepare_dataset', vars={'data_id':data_id})}}" class="btn btn-info">
+        <span class="glyphicon glyphicon-save"></span> Download Annotations
+    </a>
+</div>
+<br/>
+
 <table class="table table-hover">
     <thead>
         <tr>
             <th style="width:5%">#</th>
-            <th style="width:50%">Image</th>
+            <th style="width:40%">Image</th>
             <th style="width:20%">Label</th>
-            <th style="width:15%">Annotator</th>
-            <th style="width:10%">Agreement?</th>
+            <th style="width:10%">Annotator</th>
+            <th style="width:5%">Agreement?</th>
+            <th style="width:20%">Final Label</th>
         </tr>
     </thead>
     <tbody>
@@ -38,6 +50,8 @@
                 {{else:}}
                     <span class="glyphicon glyphicon-remove"></span>
                 {{pass}}
+            </td>
+            <td>{{=image['final_label']}}</td>
         </tr>
     {{pass}}
     </tbody>

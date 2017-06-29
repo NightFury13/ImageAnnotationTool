@@ -156,6 +156,13 @@ db.define_table('Labels',
     Field('entry_at', 'datetime', default=request.now, writable=False)
 )
 
+db.define_table('FinalLabels',
+    Field('img_id', db.Images, requires=IS_IN_DB(db, 'Images.id', 'Images.img_name')),
+    Field('label', 'string', default='--', requires=IS_NOT_EMPTY()),
+    Field('check_by', db.auth_user, requires=IS_IN_DB(db, 'auth_user.id', 'auth_user.first_name'), writable=False, default=auth.user_id),
+    Field('check_at', 'datetime', default=request.now, writable=False)
+)
+
 # -------------------------------------------------------------------------
 # after defining tables, uncomment below to enable auditing
 # -------------------------------------------------------------------------

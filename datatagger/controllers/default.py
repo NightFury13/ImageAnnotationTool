@@ -43,7 +43,12 @@ def view_annot():
     output_table = {}
     for row in annots:
         if row['Images']['id'] not in output_table:
-            output_table[row['Images']['id']] = {'img_id':row['Images']['id'], 'img_path':row['Images']['img_path'], 'img_name':row['Images']['img_name'], 'label':[row['Labels']['label']], 'annotator':[row['Labels']['entry_by']]}
+            final_label = ''
+            try:
+                final_label = db(db.FinalLabels.img_id==row['Images']['id']).select()[0]['label']
+            except:
+                final_label = '--'
+            output_table[row['Images']['id']] = {'img_id':row['Images']['id'], 'img_path':row['Images']['img_path'], 'img_name':row['Images']['img_name'], 'label':[row['Labels']['label']], 'annotator':[row['Labels']['entry_by']], 'final_label':final_label}
         else:
             output_table[row['Images']['id']]['label'].append(row['Labels']['label'])
             output_table[row['Images']['id']]['annotator'].append(row['Labels']['entry_by'])
@@ -99,6 +104,28 @@ def label_to_db():
             return DIV('Image Annotation : Success : Label Updated', _class="alert alert-success")
     except:
         return DIV('Image Annotation : Failed : Check for errors', _class="alert alert-danger")
+
+@auth.requires_login()
+def del_dataset():
+    if not request.vars.d_id:
+        session.flash = 'No Dataset selected'
+        redirect(URL('default','add_dataset'))
+
+    d_id = int(request.vars.d_id)
+    db(db.Datasets.id==d_id).delete()
+    db.commit()
+    redirect(URL('default','add_dataset'))
+
+@auth.requires_login()
+def del_metaset():
+    if not request.vars.m_id:
+        session.flash = 'No Metaset selected'
+        redirect(URL('default','add_metaset'))
+    
+    m_id = int(request.vars.m_id)
+    db(db.MetaSets.id==m_id).delete()
+    db.commit()
+    redirect(URL('default','add_metaset'))
 
 @auth.requires_login()
 def add_metaset():
@@ -197,7 +224,7 @@ def refresh_data(data_id, data_name=None, data_path=None):
             labels = [i.strip().split() for i in f.readlines()]
             for label in labels:
                 imgid = db(db.Images.img_name==label[0]).select()[0]['id']
-                db.Labels.insert(img_id=imgid, label=label[1])
+                db.Labels.insert(img_id=imgid, label=' '.join(label[1:]))
     except:
         pass
 
@@ -217,6 +244,133 @@ def add_script():
     scripts = db(db.Scripts.id>0).select()
     return locals()
 
+@auth.requires_login()
+def update_script():
+    if not request.vars.s_id:
+        session.flash = 'Error : No script provided to update!'
+        redirect(URL('default', 'add_script'))
+    else:
+        script = db.Scripts(int(request.vars.s_id))
+        form = SQLFORM(db.Scripts, script)
+        if form.process().accepted:
+            session.flash = 'Script updated'
+            redirect(URL('default', 'add_script'))
+        elif form.errors:
+            response.flash = 'Script updation failed'
+        return locals()
+
+@auth.requires_login()
+def settle_conflict():
+    try:
+        dataset_id = int(request.vars.dataset_id)
+        images = db(db.Images.data_id==dataset_id).select()
+        for img in images:
+            try:
+                final_label = db(db.Labels.img_id==img['id']).select(db.Labels.label, orderby=~db.Labels.entry_at)[0]['label']
+            except:
+                final_label = '--'
+            db.FinalLabels.insert(img_id=img['id'], label=final_label)
+        session.flash = 'Conflicting Annotations Resolved'
+    except:
+        session.flash = 'Resolving conflicting annotations failed!'
+
+    redirect(URL('default', 'view_annot?data_id='+str(dataset_id)))
+
+@auth.requires_login()
+def prepare_dataset():
+    import os
+    from PIL import Image
+    import zipfile, cStringIO
+
+    if not request.vars.data_id:
+        session.flash = 'No dataset selected for download'
+        redirect(URL('default', 'select_db?redirect=1'))
+    else:
+        data_id = int(request.vars.data_id)
+        dataset = db(db.Datasets.id==data_id).select()[0]
+        root_path = dataset['data_path'].split('cropped')[0]
+        root_folder = filter(None, root_path.split('/'))[-1]
+        root_images = [i for i in os.listdir(root_path) if i.endswith('.jpg') or i.endswith('.jpeg') or i.endswith('.png')]
+        content = {}
+        imgs_data = db((db.Images.data_id==data_id)&(db.FinalLabels.img_id==db.Images.id)).select()
+        for img_data in imgs_data:
+            label = img_data['FinalLabels']['label']
+            if 'bad' not in [i.lower() for i in label.split()]:
+                img_name = img_data['Images']['img_name']
+                root_img_name = img_name.split('_')[0]
+                xmin, ymin, xmax, ymax = img_name.split('.')[0].split('_')[2:]
+
+                if root_img_name not in content:
+                    try:
+                        r_im_name = [i_name for i_name in root_images if root_img_name in i_name][0] # This one also has the extension
+                    except:
+                        continue
+                    root_im = Image.open(os.path.join(root_path, r_im_name))
+                    r_depth = 3
+                    if not root_im.mode=='RGB':
+                        r_depth = 1
+                    r_width, r_height = root_im.size
+
+                    content[root_img_name] = {'name':r_im_name, 'depth':r_depth, 'width':r_width, 'height':r_height, 'crops':[{'label':label, 'xmin':xmin, 'ymin':ymin, 'xmax':xmax, 'ymax':ymax}]}
+                else:
+                    content[root_img_name]['crops'].append({'label':label, 'xmin':xmin, 'ymin':ymin, 'xmax':xmax, 'ymax':ymax})
+        
+        # Create zip archive.
+        zip_name = dataset['data_name']+'_annotations.zip'
+        zip_name = '_'.join(zip_name.split())
+        zip_path = os.path.join(request.folder, 'static/data/downloads', zip_name)
+        zipf = zipfile.ZipFile(zip_path, mode='w', compression=zipfile.ZIP_DEFLATED)
+
+        for im_name in content:
+            root_im = content[im_name]
+            xml_str = """<annotation>
+    <folder>%s</folder>
+    <filename>%s</filename>
+    <path>%s</path>
+    <source>
+        <database>Unknown</database>
+    </source>
+    <size>
+        <width>%s</width>
+        <height>%s</height>
+        <depth>%s</depth>
+    </size>
+    <segmented>0</segmented>""" % (root_folder, im_name, root_im['name'], root_im['width'], root_im['height'], root_im['depth'])
+
+            for crop in root_im['crops']:
+                xml_str+="""
+    <object>
+        <name>%s</name>
+        <pose>Unspecified</pose>
+        <truncated>0</truncated>
+        <difficult>0</difficult>
+        <bndbox>
+            <xmin>%s</xmin>
+            <ymin>%s</ymin>
+            <xmax>%s</xmax>
+            <ymax>%s</ymax>
+        </bndbox>
+    </object>""" % (crop['label'], crop['xmin'], crop['ymin'], crop['xmax'], crop['ymax'])
+            
+            xml_str+='\n</annotation>'
+            zipf.writestr(im_name+'.xml', xml_str)
+
+        zipf.close()
+        
+        # Download the Zip file
+        redirect('http://ocr.iiit.ac.in/tagger/datatagger/static/data/downloads/'+zip_name)
+
+@auth.requires_login()
+def download_file(filename, content):
+    import cStringIO
+    f_stream = cStringIO.StringIO()
+    f_stream.write('Test File\n')
+    filename = 'temp.txt'
+
+    file_header = 'attachment; filename='+filename
+    response.headers['Content-Type'] = 'text/csv'
+    response.headers['Content-Disposition'] = file_header
+    return f_stream.getvalue()
 
 def user():
     """
@@ -236,6 +390,39 @@ def user():
     """
     return dict(form=auth())
 
+# Hard fixes to the portal.
+def fix_issues():
+    m_ids = range(5,11)
+    d_ids = range(21, 32)
+
+    """
+    for i in ids:
+        path = db(db.Datasets.id==i).select()[0]['data_path']
+        n_path = path.split('/')
+        n_path[1] = 'home'
+        n_path[2] = 'webocr'
+        n_path[3] = 'urdu_ocr'
+        n_path = '/'.join(n_path)
+
+        db(db.Datasets.id==i).update(data_path=n_path)
+    """
+    """
+    for i in m_ids:
+        path = db(db.MetaSets.id==i).select()[0]['set_path']
+        n_path = path.split('/')
+        n_path[1] = 'home'
+        n_path[2] = 'webocr'
+        n_path[3] = 'urdu_ocr'
+        n_path = '/'.join(n_path)
+
+        db(db.MetaSets.id==i).update(set_path=n_path)
+    """
+    """
+    for i in d_ids:
+        imgs = db(db.Images.data_id==i).select()
+        break
+    """
+    return locals()
 
 @cache.action()
 def download():

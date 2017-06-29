@@ -8,10 +8,10 @@
     <table class="table table-striped table-hover" style="margin:auto; width:100%">
     <thead>
         <tr>
-            <th style="width:5%">#</th>
-            <th style="width:50%">Image</th>
-            <th style="width:15%">Other Annotations</th>
-            <th style="width:10%">Your Annotation</th>
+            <!--th style="width:3%">#</th-->
+            <th style="width:80%">Image</th>
+            <!--th style="width:20%">Other Annotations</th-->
+            <!--th style="width:7%">Your Annotation</th-->
             <th style="width:20%">Update?</th>
         </tr>
     </thead>
@@ -25,22 +25,23 @@
                 {{user_lab = '--'}}
             {{pass}}
 
-            <td>{{=img_id}}</td>
+            <!--td>{{=img_id}}</td-->
             <td>
-                <img height=200px style="max-width:100%" src="{{=URL('static', img['img_path'], args=img['img_name'])}}"/> 
-            </td>
-            <td>
+                <img height=200px style="max-width:100%" src="{{=URL('static', img['img_path'], args=img['img_name'])}}"/> <br/>
+            <!--/td>
+            <td-->
             {{labs = db((db.Labels.img_id==img_id)&(db.auth_user.id==db.Labels.entry_by)).select(db.Labels.label, db.auth_user.first_name)}}
             {{for lab in labs:}}
                 {{=lab['Labels']['label']}} ({{=lab['auth_user']['first_name']}})<br/>
+                --------------------<br/>
             {{pass}}
             </td>
-            <td>{{=user_lab}}</td>
+            <!--td>{{=user_lab}}</td-->
             <td>
                 <form id="annotate-{{=img_id}}">
-                    <input name="label" id="label" type="text" size=15/>
-                    <input type="hidden" name="img_id" id="img_id" value="{{=img_id}}" />
-                    <span style="padding-left:5%"><input type="submit" /></span>
+                    <input name="label" id="label" type="text" size=26/>
+                    <input type="hidden" name="img_id" id="img_id" value="{{=img_id}}" /><br/>
+                    <span style="float:right"><input type="submit" /></span>
                 </form>
                 <script>
                 jQuery('#annotate-{{=img_id}}').submit(function() {
@@ -51,6 +52,8 @@
                 </script>
 
                 <div id="target-{{=img_id}}"></div>
+                <br/><br/>
+                Your label = {{=user_lab}}
             </td>
         </tr>
         {{pass}}
