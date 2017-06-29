@@ -17,6 +17,7 @@
             <th>Name</th>
             <th>Size</th>
             <th>Location</th>
+            <th>Download Annotations?</th>
             <th>Datasets</th>
             <th style="color:red">Delete?</th>
         </tr>
@@ -28,6 +29,10 @@
             <td>{{=metaset['set_name']}}</td>
             <td>{{=metaset['set_size']}}</td>
             <td>{{=metaset['set_path']}}</td>
+            <td><a href="{{=URL('default','download_metaset', vars={'meta_id':metaset['id']})}}" class="btn btn-info">
+                    <span class="glyphicon glyphicon-save"></span> Download
+                </a>
+            </td>
             <td>{{=metaset['datasets']}}</td>
             <td><a href="{{=URL('default','del_metaset', vars={'m_id':metaset['id']})}}" class="btn btn-danger">
                     <span class="glyphicon glyphicon-floppy-remove"></span> Delete

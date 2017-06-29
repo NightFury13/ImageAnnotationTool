@@ -277,88 +277,124 @@ def settle_conflict():
     redirect(URL('default', 'view_annot?data_id='+str(dataset_id)))
 
 @auth.requires_login()
-def prepare_dataset():
-    import os
-    from PIL import Image
-    import zipfile, cStringIO
+def download_metaset():
+    if not request.vars.meta_id:
+        session.flash = 'No Meta-dataset selected for download'
+        redirect(URL('default', 'add_metaset'))
+    else:
+        meta_id = int(request.vars.meta_id)
+        meta_name = db(db.MetaSets.id==meta_id).select()[0]['set_name']
+        datasets = db(db.Datasets.data_set==meta_id).select()
+        content = {}
+        for dataset in datasets:
+            data_name, content = prepare_dataset(dataset['id'], content)
+        zip_name = meta_name+'_annotations.zip'
+        download_url = serialize_and_zip(zip_name, content)
+        redirect(download_url)
 
+@auth.requires_login()
+def download_dataset():
     if not request.vars.data_id:
         session.flash = 'No dataset selected for download'
         redirect(URL('default', 'select_db?redirect=1'))
     else:
         data_id = int(request.vars.data_id)
-        dataset = db(db.Datasets.id==data_id).select()[0]
-        root_path = dataset['data_path'].split('cropped')[0]
-        root_folder = filter(None, root_path.split('/'))[-1]
-        root_images = [i for i in os.listdir(root_path) if i.endswith('.jpg') or i.endswith('.jpeg') or i.endswith('.png')]
+        data_name, content = prepare_dataset(data_id)
+        zip_name = data_name+'_annotations.zip'
+        download_url = serialize_and_zip(zip_name, content)
+        redirect(download_url)
+
+@auth.requires_login()
+def prepare_dataset(data_id, content=None):
+    import os
+    from PIL import Image
+
+    if not content:
         content = {}
-        imgs_data = db((db.Images.data_id==data_id)&(db.FinalLabels.img_id==db.Images.id)).select()
-        for img_data in imgs_data:
-            label = img_data['FinalLabels']['label']
-            if 'bad' not in [i.lower() for i in label.split()]:
-                img_name = img_data['Images']['img_name']
-                root_img_name = img_name.split('_')[0]
-                xmin, ymin, xmax, ymax = img_name.split('.')[0].split('_')[2:]
+    
+    dataset = db(db.Datasets.id==data_id).select()[0]
+    root_path = dataset['data_path'].split('cropped')[0]
+    root_folder = filter(None, root_path.split('/'))[-1]
+    root_images = [i for i in os.listdir(root_path) if i.endswith('.jpg') or i.endswith('.jpeg') or i.endswith('.png')]
+    imgs_data = db((db.Images.data_id==data_id)&(db.FinalLabels.img_id==db.Images.id)).select()
+    for img_data in imgs_data:
+        label = img_data['FinalLabels']['label']
+        if 'bad' not in [i.lower() for i in label.split()]:
+            img_name = img_data['Images']['img_name']
+            root_img_name = img_name.split('_')[0]
+            xmin, ymin, xmax, ymax = img_name.split('.')[0].split('_')[2:]
 
-                if root_img_name not in content:
-                    try:
-                        r_im_name = [i_name for i_name in root_images if root_img_name in i_name][0] # This one also has the extension
-                    except:
-                        continue
-                    root_im = Image.open(os.path.join(root_path, r_im_name))
-                    r_depth = 3
-                    if not root_im.mode=='RGB':
-                        r_depth = 1
-                    r_width, r_height = root_im.size
+            if root_img_name not in content:
+                try:
+                    r_im_name = [i_name for i_name in root_images if root_img_name in i_name][0] # This one also has the extension
+                except:
+                    continue
+                root_im = Image.open(os.path.join(root_path, r_im_name))
+                r_depth = 3
+                if not root_im.mode=='RGB':
+                    r_depth = 1
+                r_width, r_height = root_im.size
 
-                    content[root_img_name] = {'name':r_im_name, 'depth':r_depth, 'width':r_width, 'height':r_height, 'crops':[{'label':label, 'xmin':xmin, 'ymin':ymin, 'xmax':xmax, 'ymax':ymax}]}
-                else:
-                    content[root_img_name]['crops'].append({'label':label, 'xmin':xmin, 'ymin':ymin, 'xmax':xmax, 'ymax':ymax})
+                content[root_img_name] = {'name':r_im_name, 'depth':r_depth, 'width':r_width, 'height':r_height, 'crops':[{'label':label, 'xmin':xmin, 'ymin':ymin, 'xmax':xmax, 'ymax':ymax}]}
+                content[root_img_name]['root_folder'] = root_folder
+            else:
+                content[root_img_name]['crops'].append({'label':label, 'xmin':xmin, 'ymin':ymin, 'xmax':xmax, 'ymax':ymax})
+
+    if not content:
+        session.flash = 'Conflicts in annotations not resolved for '+dataset['data_name']+'!'
+        redirect(URL('default','view_annot?data_id='+str(data_id)))
+
+    return dataset['data_name'], content
+    
+@auth.requires_login()
+def serialize_and_zip(zip_name, content):
+    import os
+    import zipfile
+
+    # Create zip archive.
+    zip_name = '_'.join(zip_name.split())
+    zip_path = os.path.join(request.folder, 'static/data/downloads', zip_name)
+    zipf = zipfile.ZipFile(zip_path, mode='w', compression=zipfile.ZIP_DEFLATED)
+
+    for im_name in content:
+        root_im = content[im_name]
+        print root_im
+        xml_str = """<annotation>
+<folder>%s</folder>
+<filename>%s</filename>
+<path>%s</path>
+<source>
+    <database>Unknown</database>
+</source>
+<size>
+    <width>%s</width>
+    <height>%s</height>
+    <depth>%s</depth>
+</size>
+<segmented>0</segmented>""" % (root_im['root_folder'], im_name, root_im['name'], root_im['width'], root_im['height'], root_im['depth'])
+
+        for crop in root_im['crops']:
+            xml_str+="""
+<object>
+    <name>%s</name>
+    <pose>Unspecified</pose>
+    <truncated>0</truncated>
+    <difficult>0</difficult>
+    <bndbox>
+        <xmin>%s</xmin>
+        <ymin>%s</ymin>
+        <xmax>%s</xmax>
+        <ymax>%s</ymax>
+    </bndbox>
+</object>""" % (crop['label'], crop['xmin'], crop['ymin'], crop['xmax'], crop['ymax'])
         
-        # Create zip archive.
-        zip_name = dataset['data_name']+'_annotations.zip'
-        zip_name = '_'.join(zip_name.split())
-        zip_path = os.path.join(request.folder, 'static/data/downloads', zip_name)
-        zipf = zipfile.ZipFile(zip_path, mode='w', compression=zipfile.ZIP_DEFLATED)
+        xml_str+='\n</annotation>'
+        zipf.writestr(im_name+'.xml', xml_str)
 
-        for im_name in content:
-            root_im = content[im_name]
-            xml_str = """<annotation>
-    <folder>%s</folder>
-    <filename>%s</filename>
-    <path>%s</path>
-    <source>
-        <database>Unknown</database>
-    </source>
-    <size>
-        <width>%s</width>
-        <height>%s</height>
-        <depth>%s</depth>
-    </size>
-    <segmented>0</segmented>""" % (root_folder, im_name, root_im['name'], root_im['width'], root_im['height'], root_im['depth'])
+    zipf.close()
+    download_url = 'http://ocr.iiit.ac.in/tagger/datatagger/static/data/downloads/'+zip_name
 
-            for crop in root_im['crops']:
-                xml_str+="""
-    <object>
-        <name>%s</name>
-        <pose>Unspecified</pose>
-        <truncated>0</truncated>
-        <difficult>0</difficult>
-        <bndbox>
-            <xmin>%s</xmin>
-            <ymin>%s</ymin>
-            <xmax>%s</xmax>
-            <ymax>%s</ymax>
-        </bndbox>
-    </object>""" % (crop['label'], crop['xmin'], crop['ymin'], crop['xmax'], crop['ymax'])
-            
-            xml_str+='\n</annotation>'
-            zipf.writestr(im_name+'.xml', xml_str)
-
-        zipf.close()
-        
-        # Download the Zip file
-        redirect('http://ocr.iiit.ac.in/tagger/datatagger/static/data/downloads/'+zip_name)
+    return download_url
 
 @auth.requires_login()
 def download_file(filename, content):
