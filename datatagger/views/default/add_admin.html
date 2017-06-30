@@ -1,0 +1,44 @@
+{{extend 'layout.html'}}
+
+<div style="text-align:center">
+    <h3>Add New Admin</h3>
+    <div style="padding-left:30%; width:60%">
+        <form enctype="multipart/form-data" action="{{=URL('default','add_admin')}}" method="POST">
+            Choose admin : <select name="u_id">
+            {{for user in users:}}
+            <option value={{=user[0]}}>{{=user[1]}}</option>
+            {{pass}}
+            </select>
+            <input type="submit" value="Add as Admin"/>
+        </form>
+    </div>
+</div>
+<br/>
+<br/>
+{{if admins:}}
+<table class="table table-hover">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th style="text-align:right">Revoke Access?</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{for idx in admins:}}
+        {{user = db(db.auth_user.id==idx).select()[0]}}
+        <tr>
+            <td>{{=user['id']}}</td>
+            <td>{{=user['first_name']+' '+user['last_name']}}</td>
+            <td>{{=user['email']}}</td>
+            <td style="text-align:right">
+                <a href="{{=URL('default','del_admin', vars={'u_id':user['id']})}}" class="btn btn-danger">
+                    <span class="glyphicon glyphicon-floppy-remove"></span> Remove
+                </a>
+            </td>
+        </tr>
+        {{pass}}
+    </tbody>
+</table>
+{{pass}}

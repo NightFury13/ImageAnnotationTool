@@ -25,7 +25,36 @@ def index():
     return dict(message=T('Welcome to Data Tagger!'))
 
 @auth.requires_login()
+def add_admin():
+    admins = [i['user_id'] for i in db(db.Admins.id>0).select()]
+    if auth.user_id not in admins:
+        session.flash = 'Unauthorized Access! Action will be reported.'
+        redirect('default','index')
+
+    users = [(i['id'], i['first_name']+' '+i['last_name']) for i in db(db.auth_user.id>0).select(db.auth_user.id, db.auth_user.first_name, db.auth_user.last_name) if i['id'] not in admins]
+
+    if request.vars.u_id:
+        db.Admins.insert(user_id=int(request.vars.u_id))
+        session.flash = 'New Admin Added'
+        redirect(URL('default','add_admin'))
+    return locals()
+
+@auth.requires_login()
+def del_admin():
+    admins = [i['user_id'] for i in db(db.Admins.id>0).select()]
+    if auth.user_id not in admins:
+        session.flash = 'Unauthorized Access! Action will be reported.'
+        redirect('default','index')
+
+    u_id = int(request.vars.u_id)
+    db(db.Admins.user_id==u_id).delete()
+    db.commit()
+    session.flash = 'Admin rights revoked!'
+    redirect(URL('default','add_admin'))
+
+@auth.requires_login()
 def view_annot():
+    admins = [i['id'] for i in db(db.Admins.id>0).select()]
     if not request.vars.page:
         page = 1
     else:
@@ -326,9 +355,9 @@ def prepare_dataset(data_id, content=None):
 
             if root_img_name not in content:
                 try:
-                    r_im_name = [i_name for i_name in root_images if root_img_name in i_name][0] # This one also has the extension
+                    r_im_name = [i_name for i_name in root_images if root_img_name+'.jpg'==i_name or root_img_name+'.png'==i_name or root_img_name+'.jpeg'==i_name][0] # This one also has the extension
                 except:
-                    continue
+                    redirect(URL('default', 'index', vars={'msg':'Invalid Image Format : '+root_img_name+'. Only jpg, jpeg and png are supported'}))
                 root_im = Image.open(os.path.join(root_path, r_im_name))
                 r_depth = 3
                 if not root_im.mode=='RGB':
@@ -339,6 +368,9 @@ def prepare_dataset(data_id, content=None):
                 content[root_img_name]['root_folder'] = root_folder
             else:
                 content[root_img_name]['crops'].append({'label':label, 'xmin':xmin, 'ymin':ymin, 'xmax':xmax, 'ymax':ymax})
+    # Remove duplicates
+    for r_im_n in content:
+        content[r_im_n]['crops'] = [dict(t) for t in set([tuple(d.items()) for d in content[r_im_n]['crops']])]
 
     if not content:
         session.flash = 'Conflicts in annotations not resolved for '+dataset['data_name']+'!'

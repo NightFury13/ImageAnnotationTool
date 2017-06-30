@@ -30,10 +30,16 @@ response.google_analytics_id = None
 
 response.menu = [
     (T('Home'), False, URL('default', 'index'), []),
+]
+
+admins = [i['user_id'] for i in db(db.Admins.id>0).select()]
+if auth.user_id in admins:
+    response.menu += [
     (T('Add/Update Meta-Set'), False, URL('default', 'add_metaset'), []),
     (T('Add/Update Dataset'), False, URL('default', 'add_dataset'), []),
     (T('Add Script'), False, URL('default', 'add_script'), []),
-]
+    (T('Add/Remove Admin'), False, URL('default', 'add_admin'), []),
+    ]
 
 DEVELOPMENT_MENU = False
 

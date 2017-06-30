@@ -125,6 +125,10 @@ auth.settings.reset_password_requires_verification = True
 # >>> rows = db(db.mytable.myfield == 'value').select(db.mytable.ALL)
 # >>> for row in rows: print row.id, row.myfield
 # -------------------------------------------------------------------------
+db.define_table('Admins',
+    Field('user_id', db.auth_user, requires=IS_IN_DB(db, 'auth_user.id', 'auth_user.first_name')),
+)
+
 db.define_table('Scripts',
     Field('script_name', 'string')
 )
