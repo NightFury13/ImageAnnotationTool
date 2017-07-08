@@ -41,7 +41,7 @@
                 <form id="annotate-{{=img_id}}">
                     <input name="label" id="label" type="text" size=26/>
                     <input type="hidden" name="img_id" id="img_id" value="{{=img_id}}" /><br/>
-                    <span style="float:right"><input type="submit" /></span>
+                    <span style="float:right"><input type="submit" value="Submit" /></span>
                 </form>
                 <script>
                 jQuery('#annotate-{{=img_id}}').submit(function() {
@@ -53,7 +53,7 @@
 
                 <div id="target-{{=img_id}}"></div>
                 <br/><br/>
-                Your label = {{=user_lab}}
+                Annotation = {{=user_lab}}
             </td>
         </tr>
         {{pass}}
@@ -63,7 +63,7 @@
         {{if page>1:}}
         <a href="{{=URL(vars={'page':page-1, 'data_id':data_id})}}" class="btn btn-default"><< Prev</a>
         {{pass}}
-        <span style="padding-left:2%; padding-right:2%">Page {{=page}}</span>
+        <span style="padding-left:2%; padding-right:2%">Page {{=page}} / {{=total_pages}}</span>
         {{if len(img_ids)==10:}}
         <a href="{{=URL(vars={'page':page+1, 'data_id':data_id})}}" class="btn btn-default">Next >></a>
         {{pass}}

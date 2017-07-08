@@ -1,0 +1,307 @@
+(dp1
+S'output'
+p2
+S"<type 'exceptions.SyntaxError'> invalid syntax (default.py, line 301)"
+p3
+sS'layer'
+p4
+S'/home/webocr/urdu_ocr/web2py/applications/datatagger/controllers/default.py'
+p5
+sS'code'
+p6
+S'# -*- coding: utf-8 -*-\n# this file is released under public domain and you can use without limitations\n\n# -------------------------------------------------------------------------\n# This is a sample controller\n# - index is the default action of any application\n# - user is required for authentication and authorization\n# - download is for downloading files uploaded in the db (does streaming)\n# -------------------------------------------------------------------------\n\n@auth.requires_login()\ndef index():\n    """\n    example action using the internationalization operator T and flash\n    rendered by views/default/index.html or views/generic.html\n\n    if you need a simple wiki simply replace the two lines below with:\n    return auth.wiki()\n    """\n    if request.vars.msg:\n        msg = T(request.vars.msg)\n    else:\n        msg = T("Greetings "+str(auth.user.first_name)+\'!\')\n    response.flash = msg\n    return dict(message=T(\'Welcome to Data Tagger!\'))\n\n@auth.requires_login()\ndef add_admin():\n    admins = [i[\'user_id\'] for i in db(db.Admins.id>0).select()]\n    if auth.user_id not in admins:\n        session.flash = \'Unauthorized Access! Action will be reported.\'\n        redirect(\'default\',\'index\')\n\n    users = [(i[\'id\'], i[\'first_name\']+\' \'+i[\'last_name\']) for i in db(db.auth_user.id>0).select(db.auth_user.id, db.auth_user.first_name, db.auth_user.last_name) if i[\'id\'] not in admins]\n\n    if request.vars.u_id:\n        db.Admins.insert(user_id=int(request.vars.u_id))\n        session.flash = \'New Admin Added\'\n        redirect(URL(\'default\',\'add_admin\'))\n    return locals()\n\n@auth.requires_login()\ndef del_admin():\n    admins = [i[\'user_id\'] for i in db(db.Admins.id>0).select()]\n    if auth.user_id not in admins:\n        session.flash = \'Unauthorized Access! Action will be reported.\'\n        redirect(\'default\',\'index\')\n\n    u_id = int(request.vars.u_id)\n    db(db.Admins.user_id==u_id).delete()\n    db.commit()\n    session.flash = \'Admin rights revoked!\'\n    redirect(URL(\'default\',\'add_admin\'))\n\n@auth.requires_login()\ndef view_annot():\n    admins = [i[\'user_id\'] for i in db(db.Admins.id>0).select()]\n    if not request.vars.page:\n        page = 1\n    else:\n        page = int(request.vars.page)\n\n    start = (page-1)*10\n    end = page*10\n\n    try:\n        data_id = int(request.vars.data_id)\n    except:\n        redirect(URL(\'default\',\'index\', vars={\'msg\':\'Something went wrong : Please select a Dataset before proceeding\'}))\n\n    annots = db((db.Images.id>0)&(db.Images.id==db.Labels.img_id)&(db.Images.data_id==data_id)).select(db.Images.ALL, db.Labels.ALL, orderby=db.Images.id, limitby=(start, end))\n    output_table = {}\n    for row in annots:\n        if row[\'Images\'][\'id\'] not in output_table:\n            final_label = \'\'\n            try:\n                final_label = db(db.FinalLabels.img_id==row[\'Images\'][\'id\']).select()[0][\'label\']\n            except:\n                final_label = \'--\'\n            output_table[row[\'Images\'][\'id\']] = {\'img_id\':row[\'Images\'][\'id\'], \'img_path\':row[\'Images\'][\'img_path\'], \'img_name\':row[\'Images\'][\'img_name\'], \'label\':[row[\'Labels\'][\'label\']], \'annotator\':[row[\'Labels\'][\'entry_by\']], \'final_label\':final_label}\n        else:\n            output_table[row[\'Images\'][\'id\']][\'label\'].append(row[\'Labels\'][\'label\'])\n            output_table[row[\'Images\'][\'id\']][\'annotator\'].append(row[\'Labels\'][\'entry_by\'])\n\n    return locals()\n\n@auth.requires_login()\ndef select_db():\n    redirect_fl = 0\n    if not request.vars.redirect:\n        redirect(URL(\'default\',\'index\', vars={\'msg\':\'Something went wrong, please try again\'}))\n\n    datasets = db(db.Datasets.id>0).select()\n    redirect_fl = int(request.vars.redirect)\n   \n    return locals() \n\n@auth.requires_login()\ndef annot_image():\n    if not request.vars.page:\n        page = 1\n    else:\n        page = int(request.vars.page)\n    start = (page-1)*10\n    end = page*10\n\n    try:\n        data_id = int(request.vars.data_id)\n    except:\n        redirect(URL(\'default\',\'index\', vars={\'msg\':\'Something went wrong : Please select a Dataset before proceeding\'}))\n\n    img_ids = [i[\'id\'] for i in db((db.Images.id>0)&(db.Images.data_id==data_id)).select(db.Images.id, orderby=db.Images.id, limitby=(start, end))]\n    total_images = db((db.Images.id>0)&(db.Images.data_id==data_id)).count(db.Images.id)\n    total_pages = int(total_images/10)\n\n    return locals()\n\n@auth.requires_login()\ndef label_to_db():\n    img_id = request.vars.current_id\n    all_ids = request.vars.img_id\n    idx = 0\n    for im_id in all_ids:\n        if im_id==img_id:\n            break\n        idx+=1\n    label = request.vars.label[idx]\n    img_id = int(img_id)\n    try:\n        if not db((db.Labels.img_id==img_id)&(db.Labels.entry_by==auth.user_id)).select():\n            db.Labels.insert(label=label, img_id=img_id)\n            return DIV(\'Image Annotation : Success : Label Added\', _class="alert alert-success")\n        else:\n            db((db.Labels.img_id==img_id)&(db.Labels.entry_by==auth.user_id)).update(label=label)\n            return DIV(\'Image Annotation : Success : Label Updated\', _class="alert alert-success")\n    except:\n        return DIV(\'Image Annotation : Failed : Check for errors\', _class="alert alert-danger")\n\n@auth.requires_login()\ndef del_dataset():\n    if not request.vars.d_id:\n        session.flash = \'No Dataset selected\'\n        redirect(URL(\'default\',\'add_dataset\'))\n\n    d_id = int(request.vars.d_id)\n    db(db.Datasets.id==d_id).delete()\n    db.commit()\n    redirect(URL(\'default\',\'add_dataset\'))\n\n@auth.requires_login()\ndef del_metaset():\n    if not request.vars.m_id:\n        session.flash = \'No Metaset selected\'\n        redirect(URL(\'default\',\'add_metaset\'))\n    \n    m_id = int(request.vars.m_id)\n    db(db.MetaSets.id==m_id).delete()\n    db.commit()\n    redirect(URL(\'default\',\'add_metaset\'))\n\n@auth.requires_login()\ndef add_metaset():\n    form = SQLFORM(db.MetaSets)\n    if form.process().accepted:\n        import os\n        setid = int(form.vars.id)\n        setname = form.vars.set_name\n        langdata_path = os.path.join(form.vars.set_path, \'cropped\')\n        langdata_folders = os.listdir(langdata_path)\n        \n        meta_size = 0\n        msg = \'MetaSet Creation : Success : \'\n        for langdata_folder in langdata_folders:\n            if not os.listdir(os.path.join(langdata_path, langdata_folder)):\n                continue\n            try:\n                script = db(db.Scripts.script_name==langdata_folder).select()[0][\'id\']\n            except:\n                session.flash = \'Invalid MetaSet directory structure : Non-supported script : \'+langdata_folder\n                continue\n            msg += langdata_folder+\' : \'\n            data_id = db.Datasets.insert(data_name=setname+\'~\'+langdata_folder, data_path=os.path.join(langdata_path, langdata_folder), data_script=script, data_set=setid)\n            db.commit()\n\n            refresh_data(data_id)\n            meta_size += 1\n        \n        db(db.MetaSets.id==setid).update(set_size=meta_size)\n        response.flash = msg \n    elif form.errors:\n        response.flash = \'MetaSet creation : Failed : Check form for errors\'\n\n    metasets = db(db.MetaSets.id>0).select()\n    for metaset in metasets:\n        metaset[\'datasets\'] = \' || \'.join([i[\'data_name\'] for i in db(db.Datasets.data_set==metaset[\'id\']).select()])\n           \n    return locals() \n        \n@auth.requires_login()\ndef add_dataset():\n    form = SQLFORM(db.Datasets)\n    if form.process().accepted:\n        data_id = form.vars.id\n        name = form.vars.data_name\n        path = form.vars.data_path\n        refresh_data(data_id, name, path)\n    elif form.errors:\n        session.flash = \'New dataset addition : Failed : Check form for errors\'\n\n    datasets = db(db.Datasets.id>0).select()\n    \n    return locals()\n        \n@auth.requires_login()\ndef update_db():\n    if not request.vars.data_id:\n        redirect(URL(\'default\',\'index\', vars={\'msg\':\'Dataset updation : Failed : Invalid Dataset-ID\'}))\n    data_id = int(request.vars.data_id)\n\n    refresh_data(data_id)\n    \n    redirect(URL(\'default\', \'add_dataset\'))\n\n@auth.requires_login()\ndef refresh_data(data_id, data_name=None, data_path=None):\n    import os\n\n    try:\n        dataset = db(db.Datasets.id==data_id).select()[0]\n        data_name = dataset[\'data_name\']\n        data_path = dataset[\'data_path\']\n    except:\n        if not data_name or not data_path:\n            redirect(URL(\'default\',\'index\', vars={\'msg\':\'Dataset updation : Failed : Check form for errors\'}))\n        \n    image_path = data_path\n    images = []\n    try:\n        images = [im for im in os.listdir(image_path) if im.endswith(\'.jpg\') or im.endswith(\'.png\')]\n    except:\n        db(db.Datasets.id==data_id).delete()\n        db.commit()\n        redirect(URL(\'default\',\'index\', vars={\'msg\':\'Dataset updation : Failed : No such path %s\' % data_path}))\n    \n    ctr = 0\n    db_images = [i[\'img_name\'] for i in db((db.Images.id>0)&(db.Images.data_id==data_id)).select()]\n    for img in images:\n        if img not in db_images:\n            db.Images.insert(img_name=img, img_path=image_path.split(\'static\')[-1], data_id=data_id)\n            ctr += 1\n\n    try:\n        labfile = os.path.join(image_path, [labf for labf in os.listdir(image_path) if labf.endswith(\'.txt\')][0])\n        with open(labfile, \'r\') as f:\n            labels = [i.strip().split() for i in f.readlines()]\n            for label in labels:\n                imgid = db(db.Images.img_name==label[0]).select()[0][\'id\']\n                db.Labels.insert(img_id=imgid, label=\' \'.join(label[1:]))\n    except:\n        pass\n\n    prev_size = db(db.Datasets.id==data_id).select()[0][\'data_size\']\n    db(db.Datasets.id==data_id).update(data_size=prev_size+ctr)\n    db.commit()\n    session.flash = \'Dataset updation : Success : %s : %s new images\' % (data_name, str(ctr))\n\n@auth.requires_login()\ndef add_script():\n    form = SQLFORM(db.Scripts)\n    if form.process().accepted:\n        response.flash = \'Script Addition : Success\'\n    elif form.errors:\n        response.flash = \'Script Addition : Failed : Check form for errors\'\n\n    scripts = db(db.Scripts.id>0).select()\n    return locals()\n\n@auth.requires_login()\ndef update_script():\n    if not request.vars.s_id:\n        session.flash = \'Error : No script provided to update!\'\n        redirect(URL(\'default\', \'add_script\'))\n    else:\n        script = db.Scripts(int(request.vars.s_id))\n        form = SQLFORM(db.Scripts, script)\n        if form.process().accepted:\n            session.flash = \'Script updated\'\n            redirect(URL(\'default\', \'add_script\'))\n        elif form.errors:\n            response.flash = \'Script updation failed\'\n        return locals()\n\n@auth.requires_login()\ndef settle_conflict():\n    try:\n        dataset_id = int(request.vars.dataset_id)\n        images = db(db.Images.data_id==dataset_id).select()\n        for img in images:\n            try:\n                labels = [i[\'label\'] for i in db(db.Labels.img_id==img[\'id\']).select(db.Labels.label, orderby=~db.Labels.entry_at)]\n                if \'bad\' not [i.strip() for i in labels]:\n                    final_label = db(db.Labels.img_id==img[\'id\']).select(db.Labels.label, orderby=~db.Labels.entry_at)[0][\'label\']\n                else:\n                    final_label = \'bad\'\n            except:\n                final_label = \'--\'\n            db.FinalLabels.insert(img_id=img[\'id\'], label=final_label)\n        session.flash = \'Conflicting Annotations Resolved\'\n    except:\n        session.flash = \'Resolving conflicting annotations failed!\'\n\n    redirect(URL(\'default\', \'view_annot?data_id=\'+str(dataset_id)))\n\n@auth.requires_login()\ndef download_metaset():\n    if not request.vars.meta_id:\n        session.flash = \'No Meta-dataset selected for download\'\n        redirect(URL(\'default\', \'add_metaset\'))\n    else:\n        meta_id = int(request.vars.meta_id)\n        meta_name = db(db.MetaSets.id==meta_id).select()[0][\'set_name\']\n        datasets = db(db.Datasets.data_set==meta_id).select()\n        content = {}\n        for dataset in datasets:\n            data_name, content = prepare_dataset(dataset[\'id\'], content)\n        zip_name = meta_name+\'_annotations.zip\'\n        download_url = serialize_and_zip(zip_name, content)\n        redirect(download_url)\n\n@auth.requires_login()\ndef download_dataset():\n    if not request.vars.data_id:\n        session.flash = \'No dataset selected for download\'\n        redirect(URL(\'default\', \'select_db?redirect=1\'))\n    else:\n        data_id = int(request.vars.data_id)\n        data_name, content = prepare_dataset(data_id)\n        zip_name = data_name+\'_annotations.zip\'\n        download_url = serialize_and_zip(zip_name, content)\n        redirect(download_url)\n\n@auth.requires_login()\ndef mohit_download():\n    import os\n    if not request.vars.data_id:\n        session.flash = \'No dataset selected!\'\n        redirect(URL(\'default\', \'select_db?redirect=1\'))\n\n    data_id = int(request.vars.data_id)\n    dataset = db(db.Datasets.id==data_id).select()[0]\n    root_path = dataset[\'data_path\']\n    images = [i for i in os.listdir(root_path) if i.endswith(\'.jpg\')]\n    imgs_data = db((db.Images.data_id==data_id)&(db.FinalLabels.img_id==db.Images.id)).select()\n    with open(os.path.join(root_path, \'corrected_annotation.txt\'), \'w\') as f:\n        for img_data in imgs_data:\n            label = img_data[\'FinalLabels\'][\'label\']\n            if \'bad\' not in [i.lower() for i in label.split()]:\n                f.write(img_data[\'Images\'][\'img_name\']+\' \'+label+\'\\n\')\n\n    response.flash = \'Annotation file written : \'+root_path\n    return locals()\n\n@auth.requires_login()\ndef prepare_dataset(data_id, content=None):\n    import os\n    from PIL import Image\n\n    if not content:\n        content = {}\n    \n    dataset = db(db.Datasets.id==data_id).select()[0]\n    root_path = dataset[\'data_path\'].split(\'cropped\')[0]\n    root_folder = filter(None, root_path.split(\'/\'))[-1]\n    root_images = [i for i in os.listdir(root_path) if i.endswith(\'.jpg\') or i.endswith(\'.jpeg\') or i.endswith(\'.png\')]\n    imgs_data = db((db.Images.data_id==data_id)&(db.FinalLabels.img_id==db.Images.id)).select()\n    for img_data in imgs_data:\n        label = img_data[\'FinalLabels\'][\'label\']\n        if \'bad\' not in [i.lower() for i in label.split()]:\n            img_name = img_data[\'Images\'][\'img_name\']\n            root_img_name = img_name.split(\'_\')[0]\n            try:\n                xmin, ymin, xmax, ymax = img_name.split(\'.\')[0].split(\'_\')[2:]\n            except:\n                session.flash = \'Image file names follow incorrect format. Cannot extract bounding-box coordinates\'\n                redirect(URL(\'default\', \'view_annot?data_id=\'+str(data_id)))\n\n            if root_img_name not in content:\n                try:\n                    r_im_name = [i_name for i_name in root_images if root_img_name+\'.jpg\'==i_name or root_img_name+\'.png\'==i_name or root_img_name+\'.jpeg\'==i_name][0] # This one also has the extension\n                except:\n                    redirect(URL(\'default\', \'index\', vars={\'msg\':\'Invalid Image Format : \'+root_img_name+\'. Only jpg, jpeg and png are supported\'}))\n                root_im = Image.open(os.path.join(root_path, r_im_name))\n                r_depth = 3\n                if not root_im.mode==\'RGB\':\n                    r_depth = 1\n                r_width, r_height = root_im.size\n\n                content[root_img_name] = {\'name\':r_im_name, \'depth\':r_depth, \'width\':r_width, \'height\':r_height, \'crops\':[{\'label\':label, \'xmin\':xmin, \'ymin\':ymin, \'xmax\':xmax, \'ymax\':ymax}]}\n                content[root_img_name][\'root_folder\'] = root_folder\n            else:\n                content[root_img_name][\'crops\'].append({\'label\':label, \'xmin\':xmin, \'ymin\':ymin, \'xmax\':xmax, \'ymax\':ymax})\n    # Remove duplicates\n    for r_im_n in content:\n        content[r_im_n][\'crops\'] = [dict(t) for t in set([tuple(d.items()) for d in content[r_im_n][\'crops\']])]\n\n    if not content:\n        session.flash = \'Conflicts in annotations not resolved for \'+dataset[\'data_name\']+\'!\'\n        redirect(URL(\'default\',\'view_annot?data_id=\'+str(data_id)))\n\n    return dataset[\'data_name\'], content\n    \n@auth.requires_login()\ndef serialize_and_zip(zip_name, content):\n    import os\n    import zipfile\n\n    # Create zip archive.\n    zip_name = \'_\'.join(zip_name.split())\n    zip_path = os.path.join(request.folder, \'static/data/downloads\', zip_name)\n    zipf = zipfile.ZipFile(zip_path, mode=\'w\', compression=zipfile.ZIP_DEFLATED)\n\n    for im_name in content:\n        root_im = content[im_name]\n        print root_im\n        xml_str = """<annotation>\n<folder>%s</folder>\n<filename>%s</filename>\n<path>%s</path>\n<source>\n    <database>Unknown</database>\n</source>\n<size>\n    <width>%s</width>\n    <height>%s</height>\n    <depth>%s</depth>\n</size>\n<segmented>0</segmented>""" % (root_im[\'root_folder\'], im_name, root_im[\'name\'], root_im[\'width\'], root_im[\'height\'], root_im[\'depth\'])\n\n        for crop in root_im[\'crops\']:\n            xml_str+="""\n<object>\n    <name>%s</name>\n    <pose>Unspecified</pose>\n    <truncated>0</truncated>\n    <difficult>0</difficult>\n    <bndbox>\n        <xmin>%s</xmin>\n        <ymin>%s</ymin>\n        <xmax>%s</xmax>\n        <ymax>%s</ymax>\n    </bndbox>\n</object>""" % (crop[\'label\'], crop[\'xmin\'], crop[\'ymin\'], crop[\'xmax\'], crop[\'ymax\'])\n        \n        xml_str+=\'\\n</annotation>\'\n        zipf.writestr(im_name+\'.xml\', xml_str)\n\n    zipf.close()\n    download_url = \'http://ocr.iiit.ac.in/tagger/datatagger/static/data/downloads/\'+zip_name\n\n    return download_url\n\n@auth.requires_login()\ndef download_file(filename, content):\n    import cStringIO\n    f_stream = cStringIO.StringIO()\n    f_stream.write(\'Test File\\n\')\n    filename = \'temp.txt\'\n\n    file_header = \'attachment; filename=\'+filename\n    response.headers[\'Content-Type\'] = \'text/csv\'\n    response.headers[\'Content-Disposition\'] = file_header\n    return f_stream.getvalue()\n\ndef user():\n    """\n    exposes:\n    http://..../[app]/default/user/login\n    http://..../[app]/default/user/logout\n    http://..../[app]/default/user/register\n    http://..../[app]/default/user/profile\n    http://..../[app]/default/user/retrieve_password\n    http://..../[app]/default/user/change_password\n    http://..../[app]/default/user/bulk_register\n    use @auth.requires_login()\n        @auth.requires_membership(\'group name\')\n        @auth.requires_permission(\'read\',\'table name\',record_id)\n    to decorate functions that need access control\n    also notice there is http://..../[app]/appadmin/manage/auth to allow administrator to manage users\n    """\n    return dict(form=auth())\n\n# Hard fixes to the portal.\ndef fix_issues():\n    m_ids = range(5,11)\n    d_ids = range(21, 32)\n\n    """\n    for i in ids:\n        path = db(db.Datasets.id==i).select()[0][\'data_path\']\n        n_path = path.split(\'/\')\n        n_path[1] = \'home\'\n        n_path[2] = \'webocr\'\n        n_path[3] = \'urdu_ocr\'\n        n_path = \'/\'.join(n_path)\n\n        db(db.Datasets.id==i).update(data_path=n_path)\n    """\n    """\n    for i in m_ids:\n        path = db(db.MetaSets.id==i).select()[0][\'set_path\']\n        n_path = path.split(\'/\')\n        n_path[1] = \'home\'\n        n_path[2] = \'webocr\'\n        n_path[3] = \'urdu_ocr\'\n        n_path = \'/\'.join(n_path)\n\n        db(db.MetaSets.id==i).update(set_path=n_path)\n    """\n    """\n    for i in d_ids:\n        imgs = db(db.Images.data_id==i).select()\n        break\n    """\n    return locals()\n\n@cache.action()\ndef download():\n    """\n    allows downloading of uploaded files\n    http://..../[app]/default/download/[filename]\n    """\n    return response.download(request, db)\n\n\ndef call():\n    """\n    exposes services. for example:\n    http://..../[app]/default/call/jsonrpc\n    decorate with @services.jsonrpc the functions to expose\n    supports xml, json, xmlrpc, jsonrpc, amfrpc, rss, csv\n    """\n    return service()\n\n\n\nresponse._vars=response._caller(settle_conflict)\n'
+p7
+sS'snapshot'
+p8
+(dp9
+S'exception'
+p10
+(dp11
+S'__getslice__'
+p12
+S"<method-wrapper '__getslice__' of exceptions.SyntaxError object>"
+p13
+sS'text'
+p14
+S'"                if \'bad\' not [i.strip() for i in labels]:\\n"'
+p15
+sS'__str__'
+p16
+S"<method-wrapper '__str__' of exceptions.SyntaxError object>"
+p17
+sS'__reduce__'
+p18
+S'<built-in method __reduce__ of exceptions.SyntaxError object>'
+p19
+sS'__dict__'
+p20
+S'{}'
+p21
+sS'__sizeof__'
+p22
+S'<built-in method __sizeof__ of exceptions.SyntaxError object>'
+p23
+sS'__init__'
+p24
+S"<method-wrapper '__init__' of exceptions.SyntaxError object>"
+p25
+sS'__setattr__'
+p26
+S"<method-wrapper '__setattr__' of exceptions.SyntaxError object>"
+p27
+sS'__reduce_ex__'
+p28
+S'<built-in method __reduce_ex__ of exceptions.SyntaxError object>'
+p29
+sS'__new__'
+p30
+S'<built-in method __new__ of type object>'
+p31
+sS'__format__'
+p32
+S'<built-in method __format__ of exceptions.SyntaxError object>'
+p33
+sS'__class__'
+p34
+S"<type 'exceptions.SyntaxError'>"
+p35
+sS'filename'
+p36
+S"'/home/webocr/urdu_ocr/web2py/applications/datatagger/controllers/default.py'"
+p37
+sS'lineno'
+p38
+S'301'
+p39
+sS'msg'
+p40
+S"'invalid syntax'"
+p41
+sS'__doc__'
+p42
+S"'Invalid syntax.'"
+p43
+sS'__getitem__'
+p44
+S"<method-wrapper '__getitem__' of exceptions.SyntaxError object>"
+p45
+sS'__setstate__'
+p46
+S'<built-in method __setstate__ of exceptions.SyntaxError object>'
+p47
+sS'__getattribute__'
+p48
+S"<method-wrapper '__getattribute__' of exceptions.SyntaxError object>"
+p49
+sS'print_file_and_line'
+p50
+S'None'
+p51
+sS'args'
+p52
+S'(\'invalid syntax\', (\'/home/webocr/urdu_ocr/web2py/applications/datatagger/controllers/default.py\', 301, 30, "                if \'bad\' not [i.strip() for i in labels]:\\n"))'
+p53
+sS'__subclasshook__'
+p54
+S'<built-in method __subclasshook__ of type object>'
+p55
+sS'offset'
+p56
+S'30'
+p57
+sS'__unicode__'
+p58
+S'<built-in method __unicode__ of exceptions.SyntaxError object>'
+p59
+sS'__delattr__'
+p60
+S"<method-wrapper '__delattr__' of exceptions.SyntaxError object>"
+p61
+sS'__repr__'
+p62
+S"<method-wrapper '__repr__' of exceptions.SyntaxError object>"
+p63
+sS'__hash__'
+p64
+S"<method-wrapper '__hash__' of exceptions.SyntaxError object>"
+p65
+ssS'evalue'
+p66
+S'invalid syntax (default.py, line 301)'
+p67
+sS'request'
+p68
+cgluon.html
+XML_unpickle
+p69
+(S's\xd9V\x00\x00<div><table><tr><td style="font-weight:bold;vertical-align:top;">ajax</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">application</td><td style="vertical-align:top;">:</td><td><div>datatagger</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">args</td><td style="vertical-align:top;">:</td><td><div><table></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">cid</td><td style="vertical-align:top;">:</td><td><div>None</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">client</td><td style="vertical-align:top;">:</td><td><div>10.11.0.42</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">controller</td><td style="vertical-align:top;">:</td><td><div>default</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">cookies</td><td style="vertical-align:top;">:</td><td><div><table><tr><td style="font-weight:bold;vertical-align:top;">session_id_datatagger</td><td style="vertical-align:top;">:</td><td><div>10.11.0.42-13c73a70-cf6b-4cda-b091-61913fa05db3<table><tr><td style="font-weight:bold;vertical-align:top;">comment</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">domain</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">expires</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">httponly</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">max-age</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">path</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">secure</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">version</td><td style="vertical-align:top;">:</td><td><div></div></td></tr></table></div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">env</td><td style="vertical-align:top;">:</td><td><div><table><tr><td style="font-weight:bold;vertical-align:top;">HTTP_ACCEPT</td><td style="vertical-align:top;">:</td><td><div>text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">HTTP_ACCEPT_ENCODING</td><td style="vertical-align:top;">:</td><td><div>gzip, deflate</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">HTTP_ACCEPT_LANGUAGE</td><td style="vertical-align:top;">:</td><td><div>en-GB,en-US;q=0.8,en;q=0.6</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">HTTP_CONNECTION</td><td style="vertical-align:top;">:</td><td><div>Keep-Alive</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">HTTP_COOKIE</td><td style="vertical-align:top;">:</td><td><div>__utma=233743878.1798253924.1423488039.1440050396.1440056813.5; _ga=GA1.3.1798253924.1423488039; session_id_datatagger=10.11.0.42-13c73a70-cf6b-4cda-b091-61913fa05db3</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">HTTP_DNT</td><td style="vertical-align:top;">:</td><td><div>1</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">HTTP_HOST</td><td style="vertical-align:top;">:</td><td><div>localhost:8000</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">HTTP_REFERER</td><td style="vertical-align:top;">:</td><td><div>http://ocr.iiit.ac.in/tagger/datatagger/default/view_annot</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">HTTP_UPGRADE_INSECURE_REQUESTS</td><td style="vertical-align:top;">:</td><td><div>1</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">HTTP_USER_AGENT</td><td style="vertical-align:top;">:</td><td><div>Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">HTTP_X_FORWARDED_FOR</td><td style="vertical-align:top;">:</td><td><div>10.11.0.42</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">HTTP_X_FORWARDED_HOST</td><td style="vertical-align:top;">:</td><td><div>ocr.iiit.ac.in</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">HTTP_X_FORWARDED_SERVER</td><td style="vertical-align:top;">:</td><td><div>ocr.iiit.ac.in</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">PATH_INFO</td><td style="vertical-align:top;">:</td><td><div>/datatagger/default/settle_conflict</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">QUERY_STRING</td><td style="vertical-align:top;">:</td><td><div>dataset_id=32</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">REMOTE_ADDR</td><td style="vertical-align:top;">:</td><td><div>127.0.0.1</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">REMOTE_PORT</td><td style="vertical-align:top;">:</td><td><div>38747</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">REQUEST_METHOD</td><td style="vertical-align:top;">:</td><td><div>GET</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">SCRIPT_NAME</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">SERVER_NAME</td><td style="vertical-align:top;">:</td><td><div>webocr</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">SERVER_PORT</td><td style="vertical-align:top;">:</td><td><div>8000</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">SERVER_PROTOCOL</td><td style="vertical-align:top;">:</td><td><div>HTTP/1.1</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">SERVER_SOFTWARE</td><td style="vertical-align:top;">:</td><td><div>Rocket 1.2.6</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">app_folders</td><td style="vertical-align:top;">:</td><td><div>set([&#x27;/home/webocr/urdu_ocr/web2py/applications/datatagger/&#x27;])</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">applications_parent</td><td style="vertical-align:top;">:</td><td><div>/home/webocr/urdu_ocr/web2py</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">cmd_args</td><td style="vertical-align:top;">:</td><td><div><table></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">cmd_options</td><td style="vertical-align:top;">:</td><td><div>&lt;Values at 0x7fa6fdf00290: {&#x27;verbose&#x27;: False, &#x27;ip&#x27;: &#x27;0.0.0.0&#x27;, &#x27;debuglevel&#x27;: 30, &#x27;with_scheduler&#x27;: False, &#x27;shutdown_timeout&#x27;: 5, &#x27;taskbar&#x27;: False, &#x27;with_coverage&#x27;: False, &#x27;pid_filename&#x27;: &#x27;httpserver.pid&#x27;, &#x27;maxthreads&#x27;: None, &#x27;softcron&#x27;: False, &#x27;server_name&#x27;: &#x27;webocr&#x27;, &#x27;bpython&#x27;: False, &#x27;nogui&#x27;: False, &#x27;port&#x27;: 8000, &#x27;print_errors&#x27;: False, &#x27;extcron&#x27;: False, &#x27;runcron&#x27;: False, &#x27;run_system_tests&#x27;: False, &#x27;test&#x27;: None, &#x27;folder&#x27;: &#x27;/home/webocr/urdu_ocr/web2py&#x27;, &#x27;config&#x27;: &#x27;&#x27;, &#x27;minthreads&#x27;: None, &#x27;shell&#x27;: None, &#x27;run&#x27;: &#x27;&#x27;, &#x27;log_filename&#x27;: &#x27;httpserver.log&#x27;, &#x27;profiler_dir&#x27;: None, &#x27;args&#x27;: [&#x27;&#x27;], &#x27;socket_timeout&#x27;: 5, &#x27;ssl_ca_certificate&#x27;: None, &#x27;scheduler&#x27;: None, &#x27;interfaces&#x27;: None, &#x27;ssl_private_key&#x27;: &#x27;&#x27;, &#x27;gae&#x27;: None, &#x27;password&#x27;: &#x27;******&#x27;, &#x27;request_queue_size&#x27;: 5, &#x27;ssl_certificate&#x27;: &#x27;&#x27;, &#x27;cronjob&#x27;: False, &#x27;numthreads&#x27;: None, &#x27;quiet&#x27;: False, &#x27;import_models&#x27;: False, &#x27;timeout&#x27;: 10, &#x27;plain&#x27;: False, &#x27;nobanner&#x27;: False}&gt;</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">db_sessions</td><td style="vertical-align:top;">:</td><td><div>set([])</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">debugging</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">gluon_parent</td><td style="vertical-align:top;">:</td><td><div>/home/webocr/urdu_ocr/web2py</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_accept</td><td style="vertical-align:top;">:</td><td><div>text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_accept_encoding</td><td style="vertical-align:top;">:</td><td><div>gzip, deflate</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_accept_language</td><td style="vertical-align:top;">:</td><td><div>en-GB,en-US;q=0.8,en;q=0.6</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_connection</td><td style="vertical-align:top;">:</td><td><div>Keep-Alive</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_cookie</td><td style="vertical-align:top;">:</td><td><div>__utma=233743878.1798253924.1423488039.1440050396.1440056813.5; _ga=GA1.3.1798253924.1423488039; session_id_datatagger=10.11.0.42-13c73a70-cf6b-4cda-b091-61913fa05db3</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_dnt</td><td style="vertical-align:top;">:</td><td><div>1</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_host</td><td style="vertical-align:top;">:</td><td><div>localhost:8000</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_referer</td><td style="vertical-align:top;">:</td><td><div>http://ocr.iiit.ac.in/tagger/datatagger/default/view_annot</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_upgrade_insecure_requests</td><td style="vertical-align:top;">:</td><td><div>1</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_user_agent</td><td style="vertical-align:top;">:</td><td><div>Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_x_forwarded_for</td><td style="vertical-align:top;">:</td><td><div>10.11.0.42</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_x_forwarded_host</td><td style="vertical-align:top;">:</td><td><div>ocr.iiit.ac.in</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">http_x_forwarded_server</td><td style="vertical-align:top;">:</td><td><div>ocr.iiit.ac.in</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">is_jython</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">is_pypy</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">is_source</td><td style="vertical-align:top;">:</td><td><div>True</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">local_hosts</td><td style="vertical-align:top;">:</td><td><div><table><tr><td><div>::1</div></td></tr><tr><td><div>127.0.1.1</div></td></tr><tr><td><div>webocr</div></td></tr><tr><td><div>::ffff:127.0.0.1</div></td></tr><tr><td><div>127.0.0.1</div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">path_info</td><td style="vertical-align:top;">:</td><td><div>/datatagger/default/settle_conflict</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">query_string</td><td style="vertical-align:top;">:</td><td><div>dataset_id=32</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">remote_addr</td><td style="vertical-align:top;">:</td><td><div>127.0.0.1</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">remote_port</td><td style="vertical-align:top;">:</td><td><div>38747</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">request_method</td><td style="vertical-align:top;">:</td><td><div>GET</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">request_uri</td><td style="vertical-align:top;">:</td><td><div>/datatagger/default/settle_conflict?dataset_id=32</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">script_name</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">server_name</td><td style="vertical-align:top;">:</td><td><div>webocr</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">server_port</td><td style="vertical-align:top;">:</td><td><div>8000</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">server_protocol</td><td style="vertical-align:top;">:</td><td><div>HTTP/1.1</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">server_software</td><td style="vertical-align:top;">:</td><td><div>Rocket 1.2.6</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">web2py_original_uri</td><td style="vertical-align:top;">:</td><td><div>/datatagger/default/settle_conflict?dataset_id=32</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">web2py_path</td><td style="vertical-align:top;">:</td><td><div>/home/webocr/urdu_ocr/web2py</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">web2py_version</td><td style="vertical-align:top;">:</td><td><div>2.14.6-stable+timestamp.2016.05.10.00.21.47</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi.errors</td><td style="vertical-align:top;">:</td><td><div>&lt;open file &#x27;&lt;stderr&gt;&#x27;, mode &#x27;w&#x27; at 0x7fa704d621e0&gt;</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi.file_wrapper</td><td style="vertical-align:top;">:</td><td><div>&lt;class wsgiref.util.FileWrapper at 0x7fa6fdfa33f8&gt;</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi.input</td><td style="vertical-align:top;">:</td><td><div>&lt;socket._fileobject object at 0x7fa6f41a9d50&gt;</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi.multiprocess</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi.multithread</td><td style="vertical-align:top;">:</td><td><div>True</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi.run_once</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi.url_scheme</td><td style="vertical-align:top;">:</td><td><div>http</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi.version</td><td style="vertical-align:top;">:</td><td><div><table><tr><td><div>1</div></td></tr><tr><td><div>0</div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi_errors</td><td style="vertical-align:top;">:</td><td><div>&lt;open file &#x27;&lt;stderr&gt;&#x27;, mode &#x27;w&#x27; at 0x7fa704d621e0&gt;</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi_file_wrapper</td><td style="vertical-align:top;">:</td><td><div>&lt;class wsgiref.util.FileWrapper at 0x7fa6fdfa33f8&gt;</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi_input</td><td style="vertical-align:top;">:</td><td><div>&lt;socket._fileobject object at 0x7fa6f41a9d50&gt;</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi_multiprocess</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi_multithread</td><td style="vertical-align:top;">:</td><td><div>True</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi_run_once</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi_url_scheme</td><td style="vertical-align:top;">:</td><td><div>http</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi_version</td><td style="vertical-align:top;">:</td><td><div><table><tr><td><div>1</div></td></tr><tr><td><div>0</div></td></tr></table></div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">extension</td><td style="vertical-align:top;">:</td><td><div>html</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">folder</td><td style="vertical-align:top;">:</td><td><div>/home/webocr/urdu_ocr/web2py/applications/datatagger/</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">function</td><td style="vertical-align:top;">:</td><td><div>settle_conflict</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">global_settings</td><td style="vertical-align:top;">:</td><td><div><table><tr><td style="font-weight:bold;vertical-align:top;">app_folders</td><td style="vertical-align:top;">:</td><td><div>set([&#x27;/home/webocr/urdu_ocr/web2py/applications/datatagger/&#x27;])</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">applications_parent</td><td style="vertical-align:top;">:</td><td><div>/home/webocr/urdu_ocr/web2py</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">cmd_args</td><td style="vertical-align:top;">:</td><td><div><table></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">cmd_options</td><td style="vertical-align:top;">:</td><td><div>&lt;Values at 0x7fa6fdf00290: {&#x27;verbose&#x27;: False, &#x27;ip&#x27;: &#x27;0.0.0.0&#x27;, &#x27;debuglevel&#x27;: 30, &#x27;with_scheduler&#x27;: False, &#x27;shutdown_timeout&#x27;: 5, &#x27;taskbar&#x27;: False, &#x27;with_coverage&#x27;: False, &#x27;pid_filename&#x27;: &#x27;httpserver.pid&#x27;, &#x27;maxthreads&#x27;: None, &#x27;softcron&#x27;: False, &#x27;server_name&#x27;: &#x27;webocr&#x27;, &#x27;bpython&#x27;: False, &#x27;nogui&#x27;: False, &#x27;port&#x27;: 8000, &#x27;print_errors&#x27;: False, &#x27;extcron&#x27;: False, &#x27;runcron&#x27;: False, &#x27;run_system_tests&#x27;: False, &#x27;test&#x27;: None, &#x27;folder&#x27;: &#x27;/home/webocr/urdu_ocr/web2py&#x27;, &#x27;config&#x27;: &#x27;&#x27;, &#x27;minthreads&#x27;: None, &#x27;shell&#x27;: None, &#x27;run&#x27;: &#x27;&#x27;, &#x27;log_filename&#x27;: &#x27;httpserver.log&#x27;, &#x27;profiler_dir&#x27;: None, &#x27;args&#x27;: [&#x27;&#x27;], &#x27;socket_timeout&#x27;: 5, &#x27;ssl_ca_certificate&#x27;: None, &#x27;scheduler&#x27;: None, &#x27;interfaces&#x27;: None, &#x27;ssl_private_key&#x27;: &#x27;&#x27;, &#x27;gae&#x27;: None, &#x27;password&#x27;: &#x27;******&#x27;, &#x27;request_queue_size&#x27;: 5, &#x27;ssl_certificate&#x27;: &#x27;&#x27;, &#x27;cronjob&#x27;: False, &#x27;numthreads&#x27;: None, &#x27;quiet&#x27;: False, &#x27;import_models&#x27;: False, &#x27;timeout&#x27;: 10, &#x27;plain&#x27;: False, &#x27;nobanner&#x27;: False}&gt;</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">db_sessions</td><td style="vertical-align:top;">:</td><td><div>set([])</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">debugging</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">gluon_parent</td><td style="vertical-align:top;">:</td><td><div>/home/webocr/urdu_ocr/web2py</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">is_jython</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">is_pypy</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">is_source</td><td style="vertical-align:top;">:</td><td><div>True</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">local_hosts</td><td style="vertical-align:top;">:</td><td><div><table><tr><td><div>::1</div></td></tr><tr><td><div>127.0.1.1</div></td></tr><tr><td><div>webocr</div></td></tr><tr><td><div>::ffff:127.0.0.1</div></td></tr><tr><td><div>127.0.0.1</div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">web2py_version</td><td style="vertical-align:top;">:</td><td><div>2.14.6-stable+timestamp.2016.05.10.00.21.47</div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">is_https</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">is_local</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">is_restful</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">is_scheduler</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">is_shell</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">now</td><td style="vertical-align:top;">:</td><td><div>datetime.datetime(2017, 7, 8, 12, 56, 45, 5437)</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">raw_args</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">raw_extension</td><td style="vertical-align:top;">:</td><td><div>None</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">url</td><td style="vertical-align:top;">:</td><td><div>/datatagger/default/settle_conflict</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">utcnow</td><td style="vertical-align:top;">:</td><td><div>datetime.datetime(2017, 7, 8, 7, 26, 45, 5461)</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">wsgi</td><td style="vertical-align:top;">:</td><td><div>&lt;gluon.main.LazyWSGI object at 0x7fa6d0a97b10&gt;</div></td></tr></table></div>'
+tRp70
+sS'frames'
+p71
+(lp72
+(dp73
+S'file'
+p74
+S'/home/webocr/urdu_ocr/web2py/gluon/restricted.py'
+p75
+sS'dump'
+p76
+(dp77
+S'code'
+p78
+S"'# -*- coding: utf-8 -*-\\n# this file is released ...response._vars=response._caller(settle_conflict)\\n'"
+p79
+sS'layer'
+p80
+S"'/home/webocr/urdu_ocr/web2py/applications/datatagger/controllers/default.py'"
+p81
+sS'global compile2'
+p82
+S'<function compile2>'
+p83
+sS'ccode'
+p84
+S'undefined'
+p85
+ssS'lnum'
+p86
+I226
+sS'lines'
+p87
+(dp88
+I224
+S'            ccode = code'
+p89
+sI225
+S'        else:'
+p90
+sI226
+S'            ccode = compile2(code, layer)'
+p91
+sI227
+S'        exec ccode in environment'
+p92
+sI228
+S'    except HTTP:'
+p93
+sI229
+S'        raise'
+p94
+sI230
+S'    except RestrictedError:'
+p95
+sI221
+S"    environment['__name__'] = '__restricted__'"
+p96
+sI222
+S'    try:'
+p97
+sI223
+S'        if isinstance(code, types.CodeType):'
+p98
+ssS'call'
+p99
+S"(code='# -*- coding: utf-8 -*-\\n# this file is released ...response._vars=response._caller(settle_conflict)\\n', environment={'A': <class 'gluon.html.A'>, 'ANY_OF': <class 'gluon.validators.ANY_OF'>, 'ASSIGNJS': <function ASSIGNJS>, 'AppConfig': <function AppConfig>, 'Auth': <class 'gluon.tools.Auth'>, 'B': <class 'gluon.html.B'>, 'BEAUTIFY': <class 'gluon.html.BEAUTIFY'>, 'BODY': <class 'gluon.html.BODY'>, 'BR': <class 'gluon.html.BR'>, 'BUTTON': <class 'gluon.html.BUTTON'>, ...}, layer='/home/webocr/urdu_ocr/web2py/applications/datatagger/controllers/default.py')"
+p100
+sS'func'
+p101
+S'restricted'
+p102
+sa(dp103
+g74
+S'/home/webocr/urdu_ocr/web2py/gluon/restricted.py'
+p104
+sg76
+(dp105
+S'builtincompile'
+p106
+S'<built-in function compile>'
+p107
+sS'code'
+p108
+S"'# -*- coding: utf-8 -*-\\n# this file is released ...response._vars=response._caller(settle_conflict)\\n'"
+p109
+sS'code.rstrip'
+p110
+S'<built-in method rstrip of str object>'
+p111
+sS').replace'
+p112
+g85
+sS'layer'
+p113
+S"'/home/webocr/urdu_ocr/web2py/applications/datatagger/controllers/default.py'"
+p114
+ssg86
+I209
+sg87
+(dp115
+I204
+S'def compile2(code, layer):'
+p116
+sI205
+S'    """'
+p117
+sI206
+S"    The ``+'\\\\n'`` is necessary else compile fails when code ends in a comment."
+p118
+sI207
+S'    """'
+p119
+sI208
+S''
+sI209
+S"    return compile(code.rstrip().replace('\\r\\n', '\\n') + '\\n', layer, 'exec')"
+p120
+sI210
+S''
+sI211
+S''
+sI212
+S"def restricted(code, environment=None, layer='Unknown'):"
+p121
+sI213
+S'    """'
+p122
+ssg99
+S"(code='# -*- coding: utf-8 -*-\\n# this file is released ...response._vars=response._caller(settle_conflict)\\n', layer='/home/webocr/urdu_ocr/web2py/applications/datatagger/controllers/default.py')"
+p123
+sg101
+S'compile2'
+p124
+sasS'pyver'
+p125
+S'Python 2.7.6: /home/webocr/urdu_ocr/web2py/urdu_ocr_venv/bin/python (prefix: /home/webocr/urdu_ocr/web2py/urdu_ocr_venv)'
+p126
+sS'session'
+p127
+g69
+(S's\xf1\x08\x00\x00<div><table><tr><td style="font-weight:bold;vertical-align:top;">auth</td><td style="vertical-align:top;">:</td><td><div><table><tr><td style="font-weight:bold;vertical-align:top;">expiration</td><td style="vertical-align:top;">:</td><td><div>3600</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">hmac_key</td><td style="vertical-align:top;">:</td><td><div>757ce040-5593-42d7-b050-6953b69d85a6</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">last_visit</td><td style="vertical-align:top;">:</td><td><div>datetime.datetime(2017, 7, 8, 12, 56, 45, 5437)</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">remember_me</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">user</td><td style="vertical-align:top;">:</td><td><div><table><tr><td style="font-weight:bold;vertical-align:top;">email</td><td style="vertical-align:top;">:</td><td><div>mohit.jain@research.iiit.ac.in</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">first_name</td><td style="vertical-align:top;">:</td><td><div>Mohit</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">id</td><td style="vertical-align:top;">:</td><td><div>1L</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">last_name</td><td style="vertical-align:top;">:</td><td><div>Jain</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">registration_id</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">registration_key</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">reset_password_key</td><td style="vertical-align:top;">:</td><td><div></div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">user_groups</td><td style="vertical-align:top;">:</td><td><div><table><tr><td style="font-weight:bold;vertical-align:top;">1</td><td style="vertical-align:top;">:</td><td><div>user_1</div></td></tr></table></div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">flash</td><td style="vertical-align:top;">:</td><td><div>None</div></td></tr></table></div>'
+tRp128
+sS'etype'
+p129
+S"<type 'exceptions.SyntaxError'>"
+p130
+sS'date'
+p131
+S'Sat Jul  8 12:56:45 2017'
+p132
+sS'response'
+p133
+g69
+(S's=!\x00\x00<div><table><tr><td style="font-weight:bold;vertical-align:top;">body</td><td style="vertical-align:top;">:</td><td><div>&lt;cStringIO.StringO object at 0x7fa6f45e9b58&gt;</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">cookies</td><td style="vertical-align:top;">:</td><td><div><table><tr><td style="font-weight:bold;vertical-align:top;">session_id_datatagger</td><td style="vertical-align:top;">:</td><td><div>10.11.0.42-13c73a70-cf6b-4cda-b091-61913fa05db3<table><tr><td style="font-weight:bold;vertical-align:top;">comment</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">domain</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">expires</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">httponly</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">max-age</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">path</td><td style="vertical-align:top;">:</td><td><div>/</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">secure</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">version</td><td style="vertical-align:top;">:</td><td><div></div></td></tr></table></div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">delimiters</td><td style="vertical-align:top;">:</td><td><div><table><tr><td><div>{{</div></td></tr><tr><td><div>}}</div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">files</td><td style="vertical-align:top;">:</td><td><div><table></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">flash</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">form_label_separator</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">formstyle</td><td style="vertical-align:top;">:</td><td><div>bootstrap3_inline</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">generic_patterns</td><td style="vertical-align:top;">:</td><td><div><table></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">google_analytics_id</td><td style="vertical-align:top;">:</td><td><div>None</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">headers</td><td style="vertical-align:top;">:</td><td><div><table><tr><td style="font-weight:bold;vertical-align:top;">X-Powered-By</td><td style="vertical-align:top;">:</td><td><div>web2py</div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">logo</td><td style="vertical-align:top;">:</td><td><div><a class="navbar-brand" href="http://cvit.iiit.ac.in/" id="web2py-logo"><b>CVIT</b>&trade;&nbsp;</a></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">menu</td><td style="vertical-align:top;">:</td><td><div><table><tr><td><div><table><tr><td><div>Home</div></td></tr><tr><td><div>False</div></td></tr><tr><td><div>/tagger/datatagger/default/index</div></td></tr><tr><td><div><table></table></div></td></tr></table></div></td></tr><tr><td><div><table><tr><td><div>Add/Update Meta-Set</div></td></tr><tr><td><div>False</div></td></tr><tr><td><div>/tagger/datatagger/default/add_metaset</div></td></tr><tr><td><div><table></table></div></td></tr></table></div></td></tr><tr><td><div><table><tr><td><div>Add/Update Dataset</div></td></tr><tr><td><div>False</div></td></tr><tr><td><div>/tagger/datatagger/default/add_dataset</div></td></tr><tr><td><div><table></table></div></td></tr></table></div></td></tr><tr><td><div><table><tr><td><div>Add Script</div></td></tr><tr><td><div>False</div></td></tr><tr><td><div>/tagger/datatagger/default/add_script</div></td></tr><tr><td><div><table></table></div></td></tr></table></div></td></tr><tr><td><div><table><tr><td><div>Add/Remove Admin</div></td></tr><tr><td><div>False</div></td></tr><tr><td><div>/tagger/datatagger/default/add_admin</div></td></tr><tr><td><div><table></table></div></td></tr></table></div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">meta</td><td style="vertical-align:top;">:</td><td><div><table><tr><td style="font-weight:bold;vertical-align:top;">author</td><td style="vertical-align:top;">:</td><td><div>Your Name &lt;you@example.com&gt;</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">description</td><td style="vertical-align:top;">:</td><td><div>a cool new app</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">generator</td><td style="vertical-align:top;">:</td><td><div>Web2py Web Framework</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">keywords</td><td style="vertical-align:top;">:</td><td><div><table><tr><td><div>web2py</div></td></tr><tr><td><div>python</div></td></tr><tr><td><div>framework</div></td></tr></table></div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">models_to_run</td><td style="vertical-align:top;">:</td><td><div><table><tr><td><div>^\\w+\\.py$</div></td></tr><tr><td><div>^default/\\w+\\.py$</div></td></tr><tr><td><div>^default/settle_conflict/\\w+\\.py$</div></td></tr></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">postprocessing</td><td style="vertical-align:top;">:</td><td><div><table></table></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_client</td><td style="vertical-align:top;">:</td><td><div>10.11.0.42</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_cookie_compression_level</td><td style="vertical-align:top;">:</td><td><div>None</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_cookie_expires</td><td style="vertical-align:top;">:</td><td><div>None</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_data_name</td><td style="vertical-align:top;">:</td><td><div>session_data_datatagger</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_file</td><td style="vertical-align:top;">:</td><td><div>&lt;open file &#x27;/home/webocr/urdu_ocr/web2py/applications/datatagger/sessions/090/14f/10.11.0.42-13c73a70-cf6b-4cda-b091-61913fa05db3&#x27;, mode &#x27;rb+&#x27; at 0x7fa6d0e188a0&gt;</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_filename</td><td style="vertical-align:top;">:</td><td><div>/home/webocr/urdu_ocr/web2py/applications/datatagger/sessions/10.11.0.42-13c73a70-cf6b-4cda-b091-61913fa05db3</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_hash</td><td style="vertical-align:top;">:</td><td><div>8cb1cec24a39f277e62bafb6384bad18</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_id</td><td style="vertical-align:top;">:</td><td><div>10.11.0.42-13c73a70-cf6b-4cda-b091-61913fa05db3</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_id_name</td><td style="vertical-align:top;">:</td><td><div>session_id_datatagger</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_locked</td><td style="vertical-align:top;">:</td><td><div>True</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_masterapp</td><td style="vertical-align:top;">:</td><td><div>datatagger</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_new</td><td style="vertical-align:top;">:</td><td><div>False</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">session_storage_type</td><td style="vertical-align:top;">:</td><td><div>file</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">status</td><td style="vertical-align:top;">:</td><td><div>200</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">subtitle</td><td style="vertical-align:top;">:</td><td><div></div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">title</td><td style="vertical-align:top;">:</td><td><div>Datatagger</div></td></tr><tr><td style="font-weight:bold;vertical-align:top;">view</td><td style="vertical-align:top;">:</td><td><div>default/settle_conflict.html</div></td></tr></table></div>'
+tRp134
+sS'locals'
+p135
+(dp136
+g4
+S"'/home/webocr/urdu_ocr/web2py/applications/datatagger/controllers/default.py'"
+p137
+sg6
+S"'# -*- coding: utf-8 -*-\\n# this file is released ...response._vars=response._caller(settle_conflict)\\n'"
+p138
+sssS'traceback'
+p139
+S'Traceback (most recent call last):\n  File "/home/webocr/urdu_ocr/web2py/gluon/restricted.py", line 226, in restricted\n    ccode = compile2(code, layer)\n  File "/home/webocr/urdu_ocr/web2py/gluon/restricted.py", line 209, in compile2\n    return compile(code.rstrip().replace(\'\\r\\n\', \'\\n\') + \'\\n\', layer, \'exec\')\n  File "/home/webocr/urdu_ocr/web2py/applications/datatagger/controllers/default.py", line 301\n    if \'bad\' not [i.strip() for i in labels]:\n                 ^\nSyntaxError: invalid syntax\n'
+p140
+s.

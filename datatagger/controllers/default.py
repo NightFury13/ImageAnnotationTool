@@ -54,7 +54,7 @@ def del_admin():
 
 @auth.requires_login()
 def view_annot():
-    admins = [i['id'] for i in db(db.Admins.id>0).select()]
+    admins = [i['user_id'] for i in db(db.Admins.id>0).select()]
     if not request.vars.page:
         page = 1
     else:
@@ -110,6 +110,8 @@ def annot_image():
         redirect(URL('default','index', vars={'msg':'Something went wrong : Please select a Dataset before proceeding'}))
 
     img_ids = [i['id'] for i in db((db.Images.id>0)&(db.Images.data_id==data_id)).select(db.Images.id, orderby=db.Images.id, limitby=(start, end))]
+    total_images = db((db.Images.id>0)&(db.Images.data_id==data_id)).count(db.Images.id)
+    total_pages = int(total_images/10)
 
     return locals()
 
@@ -295,10 +297,17 @@ def settle_conflict():
         images = db(db.Images.data_id==dataset_id).select()
         for img in images:
             try:
-                final_label = db(db.Labels.img_id==img['id']).select(db.Labels.label, orderby=~db.Labels.entry_at)[0]['label']
+                labels = [i['label'] for i in db(db.Labels.img_id==img['id']).select(db.Labels.label, orderby=~db.Labels.entry_at)]
+                if 'bad' not in [i.strip() for i in labels]:
+                    final_label = db(db.Labels.img_id==img['id']).select(db.Labels.label, orderby=~db.Labels.entry_at)[0]['label']
+                else:
+                    final_label = 'bad'
             except:
                 final_label = '--'
-            db.FinalLabels.insert(img_id=img['id'], label=final_label)
+            try:
+                db(db.FinalLabels.img_id==img['id']).update(label=final_label)
+            except:
+                db.FinalLabels.insert(img_id=img['id'], label=final_label)
         session.flash = 'Conflicting Annotations Resolved'
     except:
         session.flash = 'Resolving conflicting annotations failed!'
@@ -334,6 +343,27 @@ def download_dataset():
         redirect(download_url)
 
 @auth.requires_login()
+def mohit_download():
+    import os
+    if not request.vars.data_id:
+        session.flash = 'No dataset selected!'
+        redirect(URL('default', 'select_db?redirect=1'))
+
+    data_id = int(request.vars.data_id)
+    dataset = db(db.Datasets.id==data_id).select()[0]
+    root_path = dataset['data_path']
+    images = [i for i in os.listdir(root_path) if i.endswith('.jpg')]
+    imgs_data = db((db.Images.data_id==data_id)&(db.FinalLabels.img_id==db.Images.id)).select()
+    with open(os.path.join(root_path, 'corrected_annotation.txt'), 'w') as f:
+        for img_data in imgs_data:
+            label = img_data['FinalLabels']['label']
+            if 'bad' not in [i.lower() for i in label.split()]:
+                f.write(img_data['Images']['img_name']+' '+label+'\n')
+
+    response.flash = 'Annotation file written : '+root_path
+    return locals()
+
+@auth.requires_login()
 def prepare_dataset(data_id, content=None):
     import os
     from PIL import Image
@@ -351,7 +381,11 @@ def prepare_dataset(data_id, content=None):
         if 'bad' not in [i.lower() for i in label.split()]:
             img_name = img_data['Images']['img_name']
             root_img_name = img_name.split('_')[0]
-            xmin, ymin, xmax, ymax = img_name.split('.')[0].split('_')[2:]
+            try:
+                xmin, ymin, xmax, ymax = img_name.split('.')[0].split('_')[2:]
+            except:
+                session.flash = 'Image file names follow incorrect format. Cannot extract bounding-box coordinates'
+                redirect(URL('default', 'view_annot?data_id='+str(data_id)))
 
             if root_img_name not in content:
                 try:
